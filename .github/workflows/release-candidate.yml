@@ -1,0 +1,43 @@
+name: Create Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_major:
+        description: 'Force Major Version Bump (e.g. 1.2.3 -> 2.0.0-alpha)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Bump Version & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master # Always release from master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bump Version
+        id: bump
+        run: |
+          python3 .github/scripts/bump_version.py
+        env:
+          FORCE_MAJOR: ${{ inputs.force_major }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.bump.outputs.new_tag }}
+          name: Release ${{ steps.bump.outputs.new_tag }}
+          prerelease: true
+          generate_release_notes: true
