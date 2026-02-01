@@ -363,7 +363,7 @@ class SmartHubAPI:
         except ClientError as e:
             raise SmartHubConnectionError(f"Connection error during User_data request: {e}") from e
 
-    async def get_energy_data(self, location, start_datetime=None, aggregation:Aggregation=Aggregation.HOURLY) -> Optional[Dict[str, Any]]:
+    async def get_energy_data(self, location, aggregation:Aggregation, start_datetime=None) -> Optional[Dict[str, Any]]:
         """
         Retrieve energy usage data asynchronously with retry logic.
 
