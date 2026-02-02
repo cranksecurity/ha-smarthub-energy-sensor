@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, Optional
 
 from homeassistant.components.sensor import (
@@ -133,12 +134,16 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
               # Fetch monthly information for entity value
               first_day_of_current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-              data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month)
+              data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month, aggregation=Aggregation.MONTHLY)
 
-              if data.get("USAGE", None) is None:
+              if data.get("USAGE", None) is None or len(data.get("USAGE", None)) == 0:
                   _LOGGER.warning("No data received from SmartHub API for location %s", location)
                   # Return previous data if available, otherwise empty dict
-                  entity_response[location.id] = self.data or {}
+                  entity_response[location.id] = {
+                    ENERGY_SENSOR_KEY: 0, # no data - no energy usage for the entity.
+                    ATTR_LAST_READING_TIME: first_day_of_current_month.replace(tzinfo=ZoneInfo(self.api.timezone)), # use the TZ from the entity so it has consistent formating like 2026-02-01T00:00:00-05:00
+                    LOCATION_KEY: location,
+                  }
                   continue
 
               last_reading = data.get("USAGE")[-1]
@@ -239,6 +244,12 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
             _LOGGER.debug("Fetching statistics from %s", start_datetime)
             smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=Aggregation.HOURLY)
+
+
+            if len(smarthub_data.get("USAGE")) == 0:
+              _LOGGER.warning("No data received from SmartHub API for location %s to populate historical stats", location)
+              # No new data to record in statatistics
+              return
 
             start = smarthub_data.get("USAGE")[0].get("reading_time")
             _LOGGER.debug("Getting statistics at: %s", start)
