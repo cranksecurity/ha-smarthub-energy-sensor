@@ -69,25 +69,107 @@ def test_parse_usage_valid_data(api_instance):
             ]
         }
     }
-    
+
     result = api_instance.parse_usage(test_data)
-    
+
     assert result is not None
     assert "USAGE" in result
     assert len(result["USAGE"]) == 2
     assert result["USAGE"][1]["consumption"] == 150.2
 
+def test_parse_usage_offset_start(api_instance):
+    """Test parsing valid usage data."""
+    test_data = {
+        "data": {
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "data": [
+                                {"x": 1762215300000, "y":   1.1},
+                                {"x": 1762216200000, "y":  10.2},
+                                {"x": 1762217100000, "y": 100.3},
+                                {"x": 1762218000000, "y": 1.1},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    result = api_instance.parse_usage(test_data)
+
+    assert result is not None
+    assert "USAGE" in result
+    assert len(result["USAGE"]) == 2
+    assert result["USAGE"][0]["consumption"] == 111.6
+    assert result["USAGE"][1]["consumption"] == 1.1
+
+def test_parse_usage_fifteen_min(api_instance):
+    """Test parsing valid usage data."""
+    test_data = {
+        "data": {
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "data": [
+                                {"x": 1762218000000, "y":    1.1},
+                                {"x": 1762218900000, "y":   10.2},
+                                {"x": 1762219800000, "y":  100.3},
+                                {"x": 1762220700000, "y": 1000.4},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    result = api_instance.parse_usage(test_data)
+
+    assert result is not None
+    assert "USAGE" in result
+    assert len(result["USAGE"]) == 1
+    assert result["USAGE"][0]["consumption"] == 1112.0
+
 
 def test_parse_usage_no_data(api_instance):
     """Test parsing when no usage data is available."""
     test_data = {"data": {"ELECTRIC": []}}
-    
+
     result = api_instance.parse_usage(test_data)
-    
+
     # parse_usage returns {} if no usage found (or rather, the dict might be empty of USAGE key)
-    # Looking at code: parsed_response = {}, if len(electric_data) == 0 log warning. 
+    # Looking at code: parsed_response = {}, if len(electric_data) == 0 log warning.
     # Returns parsed_response. So it returns {}.
     assert result == {}
+
+def test_parse_usage_no_usage(api_instance):
+    """Test parsing when no usage data is available."""
+    test_data = {
+        "data": {
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "data": []
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    result = api_instance.parse_usage(test_data)
+
+    assert result is not None
+    assert "USAGE" in result
+    assert len(result["USAGE"]) == 0
 
 
 def test_parse_usage_invalid_data(api_instance):
@@ -106,16 +188,16 @@ async def test_async_setup_entry_success(mock_hass, mock_config_entry):
         mock_api.get_token = AsyncMock(return_value="test_token")
         mock_api.close = AsyncMock()
         mock_api_class.return_value = mock_api
-        
+
         with patch("custom_components.smarthub.SmartHubDataUpdateCoordinator") as mock_coordinator_cls:
              mock_coordinator = mock_coordinator_cls.return_value
              mock_coordinator.async_config_entry_first_refresh = AsyncMock()
-             
+
              # Configure mock_hass to support await
              mock_hass.config_entries.async_forward_entry_setups = AsyncMock()
 
              result = await async_setup_entry(mock_hass, mock_config_entry)
-            
+
              assert result is True
              # In the new code, runtime_data is set on entry
              assert hasattr(mock_config_entry, "runtime_data")
@@ -129,7 +211,7 @@ async def test_async_setup_entry_connection_failure(mock_hass, mock_config_entry
         mock_api.get_token = AsyncMock(side_effect=Exception("Connection failed"))
         mock_api.close = AsyncMock()
         mock_api_class.return_value = mock_api
-        
+
         from homeassistant.exceptions import ConfigEntryError
         with pytest.raises(ConfigEntryError):
             await async_setup_entry(mock_hass, mock_config_entry)
@@ -145,7 +227,7 @@ def test_smarthub_api_basic_functionality():
         mfa_totp="123456",
         host="test.smarthub.coop"
     )
-    
+
     # Test that API object is created correctly
     assert api.email == "test@example.com"
     assert api.account_id == "123456"

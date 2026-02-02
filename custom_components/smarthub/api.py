@@ -149,6 +149,11 @@ class SmartHubAPI:
                             event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
                             # HA stats import wants timestamps only at standard intervals -
                             # https://github.com/home-assistant/core/blob/4fef19c7bc7c1f7be827f6c489ad1df232e44906/homeassistant/components/recorder/statistics.py#L2634
+                             # If the first entry isn't aligned with the top of the hour - treat it as if it was
+                            if event_time.minute != 0 and len(parsed_data) == 0:
+                              _LOGGER.warning("Initial usage data is not aligned with top of the hour, pining it to 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
+                              event_time = event_time.replace(minute=0)
+
                             if event_time.minute != 0:
                               _LOGGER.debug("consolidating sub hour data: %s, %s + %s", event_time, parsed_data[-1]['consumption'], usage.get("y"))
                               parsed_data[-1]['consumption'] += usage.get("y")
@@ -169,6 +174,7 @@ class SmartHubAPI:
             return parsed_response
 
         except Exception as e:
+            _LOGGER.error("Error parsing usage data: %s", data)
             raise SmartHubDataError(f"Error parsing usage data: {e}") from e
 
 
