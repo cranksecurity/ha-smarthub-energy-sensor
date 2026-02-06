@@ -77,6 +77,37 @@ def test_parse_usage_valid_data(api_instance):
     assert len(result["USAGE"]) == 2
     assert result["USAGE"][1]["consumption"] == 150.2
 
+def test_parse_usage_offset_hourly(api_instance):
+    """Test parsing valid usage data."""
+    test_data = {
+        "data": {
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "data": [
+                                {"x": 1762215300000, "y":   1.1},
+                                {"x": 1762216200000, "y":  10.2},
+                                {"x": 1762217100000, "y": 100.3},
+                                {"x": 1762218900000, "y": 1.1},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    result = api_instance.parse_usage(test_data)
+
+    assert result is not None
+    assert "USAGE" in result
+    assert len(result["USAGE"]) == 2
+    assert result["USAGE"][0]["consumption"] == 111.6
+    assert result["USAGE"][1]["consumption"] == 1.1
+    assert result["USAGE"][1]["raw_timestamp"] == 1762218000000 # not 1762218900000, because thats :15 min after the hour
+
 def test_parse_usage_offset_start(api_instance):
     """Test parsing valid usage data."""
     test_data = {
@@ -106,6 +137,7 @@ def test_parse_usage_offset_start(api_instance):
     assert len(result["USAGE"]) == 2
     assert result["USAGE"][0]["consumption"] == 111.6
     assert result["USAGE"][1]["consumption"] == 1.1
+    assert result["USAGE"][1]["raw_timestamp"] == 1762218000000
 
 def test_parse_usage_fifteen_min(api_instance):
     """Test parsing valid usage data."""
@@ -135,7 +167,7 @@ def test_parse_usage_fifteen_min(api_instance):
     assert "USAGE" in result
     assert len(result["USAGE"]) == 1
     assert result["USAGE"][0]["consumption"] == 1112.0
-
+    assert result["USAGE"][0]["raw_timestamp"] == 1762218000000
 
 def test_parse_usage_no_data(api_instance):
     """Test parsing when no usage data is available."""

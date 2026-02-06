@@ -151,8 +151,23 @@ class SmartHubAPI:
                             # https://github.com/home-assistant/core/blob/4fef19c7bc7c1f7be827f6c489ad1df232e44906/homeassistant/components/recorder/statistics.py#L2634
                              # If the first entry isn't aligned with the top of the hour - treat it as if it was
                             if event_time.minute != 0 and len(parsed_data) == 0:
-                              _LOGGER.warning("Initial usage data is not aligned with top of the hour, pining it to 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
-                              event_time = event_time.replace(minute=0)
+                              _LOGGER.warning("Initial usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
+                              zero_time = event_time.replace(minute=0)
+                              parsed_data.append({
+                                "reading_time" : zero_time,
+                                "consumption" : 0,
+                                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
+                              })
+
+                            # If the previous parsed time is in a different hour, and we still don't have a 00 minute - insert a 0 entry
+                            if len(parsed_data) > 0 and parsed_data[-1]["reading_time"].hour != event_time.hour and event_time.minute != 0:
+                              _LOGGER.warning("Usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
+                              zero_time = event_time.replace(minute=0)
+                              parsed_data.append({
+                                "reading_time" : zero_time,
+                                "consumption" : 0,
+                                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
+                              })
 
                             if event_time.minute != 0:
                               _LOGGER.debug("consolidating sub hour data: %s, %s + %s", event_time, parsed_data[-1]['consumption'], usage.get("y"))
