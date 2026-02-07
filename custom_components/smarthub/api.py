@@ -121,6 +121,7 @@ class SmartHubAPI:
 
     def parse_usage_series(self, usage_data: List[Dict], parseType: ParseType = ParseType.FORWARD) -> List[Dict]:
         parsed_data = []
+        _LOGGER.debug(f"First 10 entries of usage data: {usage_data[:10]}")
         for usage in usage_data:
             event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
             # HA stats import wants timestamps only at standard intervals -
@@ -197,10 +198,12 @@ class SmartHubAPI:
             electric_data = data.get("data", {}).get("ELECTRIC", [])
             if len(electric_data) == 0:
               _LOGGER.warning("No ELECTRIC data found in response")
+              _LOGGER.debug(data)
 
             for entry in electric_data:
                 # Find the entry with type "USAGE"
                 if entry.get("type","") == "USAGE":
+                    _LOGGER.debug("Usage: ", entry)
 
                     meters = entry.get("meters", [])
                     forward_series = ""
@@ -241,6 +244,8 @@ class SmartHubAPI:
                             if net_series != "":
                               parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
                               _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
+                else:
+                    _LOGGER.debug("Unknown Usage: ", entry)
 
             return parsed_response
 
@@ -555,6 +560,7 @@ class SmartHubAPI:
 
                     try:
                         response_json = await response.json()
+                        # _LOGGER.debug(response_json) # Specific parts of usage are logged separately - uncomment for full response
                     except Exception as e:
                         raise SmartHubDataError(f"Invalid JSON response: {e}") from e
 
