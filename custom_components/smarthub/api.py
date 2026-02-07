@@ -494,6 +494,7 @@ class SmartHubAPI:
 
                     try:
                         response_json = await response.json()
+                        _LOGGER.debug(response_json)
                     except Exception as e:
                         raise SmartHubDataError(f"Invalid JSON response: {e}") from e
 
