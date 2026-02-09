@@ -177,6 +177,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
     async def _insert_statistics(self, location, aggregation: Aggregation):
         """Retrieve energy usage data asynchronously with retry logic. Always backfills the data overwriting the history based on the collection window."""
         consumption_statistic_id = f"{DOMAIN}:smarthub_energy_sensor{aggregation.suffix}_{self.account_id}_{location.id}"
+        return_statistic_id = f"{DOMAIN}:smarthub_energy_return_sensor{aggregation.suffix}_{self.account_id}_{location.id}"
 
         consumption_unit_class = (
             EnergyConverter.UNIT_CLASS
@@ -190,7 +191,17 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             name=f"SmartHub Energy {aggregation.label} Usage - {self.account_id} - {location.description}",
             source=DOMAIN,
             statistic_id=consumption_statistic_id,
-#             unit_class=consumption_unit_class, # required in 2025.11
+            unit_class=consumption_unit_class, # required in 2025.11
+            unit_of_measurement=consumption_unit,
+        )
+
+        return_metadata = StatisticMetaData(
+            mean_type=StatisticMeanType.NONE,
+            has_sum=True,
+            name=f"SmartHub Energy {aggregation.label} Return - {self.account_id} - {location.description}",
+            source=DOMAIN,
+            statistic_id=return_statistic_id,
+            unit_class=consumption_unit_class, # required in 2025.11
             unit_of_measurement=consumption_unit,
         )
 
@@ -203,6 +214,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         if not last_stat:
             _LOGGER.debug("Updating %s statistic for the first time", aggregation.label)
             consumption_sum = 0.0
+            return_sum      = 0.0
             last_stats_time = None
 
             # Initialize with last HISTORICAL_IMPORT_DAYS (usually 90) days of data
@@ -246,7 +258,6 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Fetching %s statistics from %s", aggregation.label, start_datetime)
             smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=aggregation)
 
-
             if len(smarthub_data.get("USAGE")) == 0:
               _LOGGER.warning("No data received from SmartHub API for location %s to populate historical %s stats", location, aggregation.label)
               # No new data to record in statatistics
@@ -270,6 +281,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                     end,
                     {
                         consumption_statistic_id,
+                        return_statistic_id,
                     },
                     aggregation.period,
                     None,
@@ -292,11 +304,13 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 return 0.0
 
             consumption_sum = _safe_get_sum(stats.get(consumption_statistic_id, []))
+            return_sum    = _safe_get_sum(stats.get(return_statistic_id, []))
             last_stats_time = stats[consumption_statistic_id][0]["start"]
 
             _LOGGER.info(f"Updating %s statistics since %s", aggregation.label, last_stats_time)
 
         consumption_statistics = []
+        return_statistics      = []
 
         for cost_read in smarthub_data.get("USAGE"):
             start = cost_read.get("reading_time")
@@ -312,6 +326,20 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 )
             )
 
+        for return_read in smarthub_data.get("USAGE_RETURN", []):
+            start = return_read.get("reading_time")
+            if last_stats_time is not None and start.timestamp() <= last_stats_time:
+                continue
+
+            return_state = max(0, return_read.get("consumption"))
+            return_sum += return_state
+
+            return_statistics.append(
+                StatisticData(
+                    start=start, state=return_state, sum=return_sum
+                )
+            )
+
         _LOGGER.info(
             "Adding %s statistics for %s",
             len(consumption_statistics),
@@ -321,7 +349,15 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             self.hass, consumption_metadata, consumption_statistics
         )
 
-
+        if "USAGE_RETURN" in smarthub_data:
+          _LOGGER.info(
+            "Adding %s return statistics for %s",
+            len(return_statistics),
+            return_statistic_id,
+          )
+          async_add_external_statistics(
+            self.hass, return_metadata, return_statistics
+          )
 
 
 class SmartHubEnergySensor(CoordinatorEntity, SensorEntity):

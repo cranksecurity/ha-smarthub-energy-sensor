@@ -59,6 +59,9 @@ def test_parse_usage_valid_data(api_instance):
                     "type": "USAGE",
                     "series": [
                         {
+                            "meters": [
+                             {'meterNumber': '1ND81111111', 'seriesId': '1ND81111111', 'flowDirection': 'NET', 'isNetMeter': True}, # Non net meters have Forward flow as default
+                            ],
                             "data": [
                                 {"x": 1640995200000, "y": 100.5},
                                 {"x": 1641081600000, "y": 150.2},
@@ -86,6 +89,9 @@ def test_parse_usage_offset_hourly(api_instance):
                     "type": "USAGE",
                     "series": [
                         {
+                            "meters": [
+                             {'meterNumber': '1ND81111111', 'seriesId': '1ND81111111', 'flowDirection': 'FORWARD', 'isNetMeter': False}, # Non net meters have Forward flow as default
+                            ],
                             "data": [
                                 {"x": 1762215300000, "y":   1.1},
                                 {"x": 1762216200000, "y":  10.2},
@@ -117,6 +123,9 @@ def test_parse_usage_offset_start(api_instance):
                     "type": "USAGE",
                     "series": [
                         {
+                            "meters": [
+                             {'meterNumber': '1ND81111111', 'seriesId': '1ND81111111', 'flowDirection': 'NET', 'isNetMeter': True}, # Non net meters have Forward flow as default
+                            ],
                             "data": [
                                 {"x": 1762215300000, "y":   1.1},
                                 {"x": 1762216200000, "y":  10.2},
@@ -148,6 +157,9 @@ def test_parse_usage_fifteen_min(api_instance):
                     "type": "USAGE",
                     "series": [
                         {
+                            "meters": [
+                             {'meterNumber': '1ND81111111', 'seriesId': '1ND81111111', 'flowDirection': 'NET', 'isNetMeter': True}, # Non net meters have Forward flow as default
+                            ],
                             "data": [
                                 {"x": 1762218000000, "y":    1.1},
                                 {"x": 1762218900000, "y":   10.2},
@@ -189,6 +201,7 @@ def test_parse_usage_no_usage(api_instance):
                     "type": "USAGE",
                     "series": [
                         {
+                            "meters": [],
                             "data": []
                         }
                     ]
