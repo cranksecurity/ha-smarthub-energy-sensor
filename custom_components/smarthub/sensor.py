@@ -246,7 +246,6 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Fetching %s statistics from %s", aggregation.label, start_datetime)
             smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=aggregation)
 
-
             if len(smarthub_data.get("USAGE")) == 0:
               _LOGGER.warning("No data received from SmartHub API for location %s to populate historical %s stats", location, aggregation.label)
               # No new data to record in statatistics

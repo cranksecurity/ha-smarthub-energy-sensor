@@ -111,6 +111,48 @@ class SmartHubAPI:
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_created_at: Optional[datetime] = None
 
+    def parse_usage_series(self, usage_data: List[Dict]) -> List[Dict]:
+        parsed_data = []
+        for usage in usage_data:
+            event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
+            # HA stats import wants timestamps only at standard intervals -
+            # https://github.com/home-assistant/core/blob/4fef19c7bc7c1f7be827f6c489ad1df232e44906/homeassistant/components/recorder/statistics.py#L2634
+             # If the first entry isn't aligned with the top of the hour - treat it as if it was
+            if event_time.minute != 0 and len(parsed_data) == 0:
+              _LOGGER.warning("Initial usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
+              zero_time = event_time.replace(minute=0)
+              parsed_data.append({
+                "reading_time" : zero_time,
+                "consumption" : 0,
+                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
+              })
+
+            # If the previous parsed time is in a different hour, and we still don't have a 00 minute - insert a 0 entry
+            if len(parsed_data) > 0 and parsed_data[-1]["reading_time"].hour != event_time.hour and event_time.minute != 0:
+              _LOGGER.warning("Usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
+              zero_time = event_time.replace(minute=0)
+              parsed_data.append({
+                "reading_time" : zero_time,
+                "consumption" : 0,
+                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
+              })
+
+            if event_time.minute != 0:
+              _LOGGER.debug("consolidating sub hour data: %s, %s + %s", event_time, parsed_data[-1]['consumption'], usage.get("y"))
+              parsed_data[-1]['consumption'] += usage.get("y")
+              continue
+
+            # Ignore events with no energy recording
+            if usage.get("y") == 0:
+              continue
+
+            parsed_data.append({
+              "reading_time" : event_time,
+              "consumption" : usage.get("y"),
+              "raw_timestamp": usage.get("x"),
+            })
+
+        return parsed_data
 
     def parse_usage(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -139,52 +181,29 @@ class SmartHubAPI:
             for entry in electric_data:
                 # Find the entry with type "USAGE"
                 if entry.get("type","") == "USAGE":
-                    parsed_data = []
+
+                    meters = entry.get("meters", [])
+                    forward_meter = ""
+                    net_meter = ""
+                    if len(meters) > 2:
+                      _LOGGER.warning("More then 2 meters in usage data: %s", meters)
+                    for meter in meters:
+                      # assume forward is default if not present
+                      flow_direction = meter.get("flowDirection","FORWARD")
+                      if flow_direction == "FORWARD":
+                        forward_meter= meter["meterNumber"]
+                      elif flow_direction == "NET":
+                        net_meter= meter["meterNumber"]
+                      else:
+                        _LOGGER.warning("Unknown flow direction in meter: %s", meter)
+
                     series = entry.get("series", [])
                     for serie in series:
-                        # Extract the last data point in the "data" array
-                        usage_data = serie.get("data", [])
-
-                        for usage in usage_data:
-                            event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
-                            # HA stats import wants timestamps only at standard intervals -
-                            # https://github.com/home-assistant/core/blob/4fef19c7bc7c1f7be827f6c489ad1df232e44906/homeassistant/components/recorder/statistics.py#L2634
-                             # If the first entry isn't aligned with the top of the hour - treat it as if it was
-                            if event_time.minute != 0 and len(parsed_data) == 0:
-                              _LOGGER.warning("Initial usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
-                              zero_time = event_time.replace(minute=0)
-                              parsed_data.append({
-                                "reading_time" : zero_time,
-                                "consumption" : 0,
-                                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
-                              })
-
-                            # If the previous parsed time is in a different hour, and we still don't have a 00 minute - insert a 0 entry
-                            if len(parsed_data) > 0 and parsed_data[-1]["reading_time"].hour != event_time.hour and event_time.minute != 0:
-                              _LOGGER.warning("Usage data is not aligned with top of the hour, inserting a 0 entry at 0 minutes: event_time:%s, %s", event_time, usage.get("x"))
-                              zero_time = event_time.replace(minute=0)
-                              parsed_data.append({
-                                "reading_time" : zero_time,
-                                "consumption" : 0,
-                                "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
-                              })
-
-                            if event_time.minute != 0:
-                              _LOGGER.debug("consolidating sub hour data: %s, %s + %s", event_time, parsed_data[-1]['consumption'], usage.get("y"))
-                              parsed_data[-1]['consumption'] += usage.get("y")
-                              continue
-
-                            # Ignore events with no energy recording
-                            if usage.get("y") == 0:
-                              continue
-
-                            parsed_data.append({
-                              "reading_time" : event_time,
-                              "consumption" : usage.get("y"),
-                              "raw_timestamp": usage.get("x"),
-                            })
-                    _LOGGER.debug("Parsed %d items for usage history", len(parsed_data))
-                    parsed_response["USAGE"] = parsed_data
+                        if serie.get("meterNumber", "") == forward_meter:
+                            # Extract the last data point in the "data" array
+                            usage_data = serie.get("data", [])
+                            parsed_response["USAGE"] = self.parse_usage_series(usage_data)
+                            _LOGGER.debug("Parsed %d items for usage history", len(parsed_response["USAGE"]))
 
             return parsed_response
 
