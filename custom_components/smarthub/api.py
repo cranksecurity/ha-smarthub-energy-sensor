@@ -199,7 +199,7 @@ class SmartHubAPI:
 
                     series = entry.get("series", [])
                     for serie in series:
-                        if serie.get("meterNumber", "") == forward_meter:
+                        if serie.get("meterNumber", "") == (net_meter if net_meter != "" else forward_meter):
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response["USAGE"] = self.parse_usage_series(usage_data)
