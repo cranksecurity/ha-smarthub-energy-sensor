@@ -111,7 +111,7 @@ class SmartHubAPI:
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_created_at: Optional[datetime] = None
 
-    def parse_usage_series(self, usage_data: List[Dict]) -> List[Dict]:
+    def parse_usage_series(self, usage_data: List[Dict], generation: bool = False) -> List[Dict]:
         parsed_data = []
         for usage in usage_data:
             event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
@@ -137,18 +137,30 @@ class SmartHubAPI:
                 "raw_timestamp": int(zero_time.replace(tzinfo=timezone.utc).timestamp()*1000), # convert zero_time to UTC, and multiply by 1000
               })
 
+            # When doing a normal energy monitoring - never report negative numbers
+            # When doing a generation usage, only report negative numbers, but invert them to be positive
+            usage_energy = usage.get("y")
+            if generation:
+              if usage_energy > 0:
+                usage_energy = 0
+              else:
+                usage_energy = abs(usage_energy)
+            else:
+              usage_energy = max(0,usage_energy)
+
+
             if event_time.minute != 0:
               _LOGGER.debug("consolidating sub hour data: %s, %s + %s", event_time, parsed_data[-1]['consumption'], usage.get("y"))
-              parsed_data[-1]['consumption'] += usage.get("y")
+              parsed_data[-1]['consumption'] += usage_energy
               continue
 
             # Ignore events with no energy recording
-            if usage.get("y") == 0:
+            if usage_energy == 0:
               continue
 
             parsed_data.append({
               "reading_time" : event_time,
-              "consumption" : usage.get("y"),
+              "consumption" : usage_energy,
               "raw_timestamp": usage.get("x"),
             })
 
@@ -203,7 +215,11 @@ class SmartHubAPI:
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response["USAGE"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for usage history", len(parsed_response["USAGE"]))
+                            _LOGGER.debug("Parsed %d items for USAGE history", len(parsed_response["USAGE"]))
+
+                            if net_meter != "":
+                              parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, True)
+                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE"]))
 
             return parsed_response
 
