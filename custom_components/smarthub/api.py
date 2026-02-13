@@ -403,6 +403,9 @@ class SmartHubAPI:
                         if not description:
                             description = service_description.get("id", "unknown")
 
+                        if entry.get("inactive", False): # assume active by default
+                          continue ; # Don't include inactive accounts in list
+
                         locations.append(
                           SmartHubLocation(
                             id=location_id,
