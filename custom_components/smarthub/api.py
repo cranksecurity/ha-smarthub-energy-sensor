@@ -30,6 +30,11 @@ from .utils import sanitize_host
 
 _LOGGER = logging.getLogger(__name__)
 
+class ParseType(Enum):
+    FORWARD = "FORWARD"
+    NET = "NET"
+    RETURN = "RETURN"
+
 class Aggregation(Enum):
     HOURLY = "HOURLY"
     DAILY = "DAILY"
@@ -111,7 +116,7 @@ class SmartHubAPI:
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_created_at: Optional[datetime] = None
 
-    def parse_usage_series(self, usage_data: List[Dict], generation: bool = False) -> List[Dict]:
+    def parse_usage_series(self, usage_data: List[Dict], parseType: ParseType = ParseType.FORWARD) -> List[Dict]:
         parsed_data = []
         for usage in usage_data:
             event_time = datetime.fromtimestamp(usage.get("x") / 1000.0, tz=timezone.utc).replace(tzinfo=ZoneInfo(self.timezone)) # convert microseconds to timestmap -> read data as if it was in provider TZ, then conver to UTC for statistics
@@ -138,14 +143,14 @@ class SmartHubAPI:
               })
 
             # When doing a normal energy monitoring - never report negative numbers
-            # When doing a generation usage, only report negative numbers, but invert them to be positive
+            # When doing a NET usage, only report negative numbers, but invert them to be positive
             usage_energy = usage.get("y")
-            if generation:
+            if parseType == ParseType.NET:
               if usage_energy > 0:
                 usage_energy = 0
               else:
                 usage_energy = abs(usage_energy)
-            else:
+            else: # both FORWARD and RETURN use postive values
               usage_energy = max(0,usage_energy)
 
 
@@ -195,31 +200,41 @@ class SmartHubAPI:
                 if entry.get("type","") == "USAGE":
 
                     meters = entry.get("meters", [])
-                    forward_meter = ""
-                    net_meter = ""
+                    forward_series = ""
+                    net_series = ""
+                    return_series = ""
                     if len(meters) > 2:
                       _LOGGER.warning("More then 2 meters in usage data: %s", meters)
                     for meter in meters:
                       # assume forward is default if not present
                       flow_direction = meter.get("flowDirection","FORWARD")
                       if flow_direction == "FORWARD":
-                        forward_meter= meter["meterNumber"]
+                        forward_series= meter["seriesId"]
                       elif flow_direction == "NET":
-                        net_meter= meter["meterNumber"]
+                        net_series= meter["seriesId"]
+                      elif flow_direction == "RETURN":
+                        return_series= meter["seriesId"]
                       else:
                         _LOGGER.warning("Unknown flow direction in meter: %s", meter)
 
                     series = entry.get("series", [])
                     for serie in series:
-                        if serie.get("meterNumber", "") == (net_meter if net_meter != "" else forward_meter):
+                        if serie.get("name", "") == return_series:
+                            usage_data = serie.get("data", [])
+                            parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.RETURN)
+                            _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
+                            print("RETURN_METER ", parsed_response["USAGE_RETURN"])
+
+                        # If there is a NetMeter, use that for both Return and Usage (as it combines both).
+                        if serie.get("name", "") == (net_series if net_series != "" else forward_series):
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response["USAGE"] = self.parse_usage_series(usage_data)
                             _LOGGER.debug("Parsed %d items for USAGE history", len(parsed_response["USAGE"]))
 
-                            if net_meter != "":
-                              parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, True)
-                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE"]))
+                            if net_series != "":
+                              parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
+                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
 
             return parsed_response
 
