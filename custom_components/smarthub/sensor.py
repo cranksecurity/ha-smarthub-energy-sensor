@@ -56,6 +56,7 @@ from .const import (
     ATTR_LOCATION_ID,
     LOCATION_KEY,
     HISTORICAL_IMPORT_DAYS,
+    METER_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -144,6 +145,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                     ENERGY_SENSOR_KEY: 0, # no data - no energy usage for the entity.
                     ATTR_LAST_READING_TIME: first_day_of_current_month.replace(tzinfo=ZoneInfo(self.api.timezone)), # use the TZ from the entity so it has consistent formating like 2026-02-01T00:00:00-05:00
                     LOCATION_KEY: location,
+                    METER_NAME: data.get(METER_NAME, None)
                   }
                   continue
 
@@ -154,6 +156,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 ENERGY_SENSOR_KEY: last_reading['consumption'],
                 ATTR_LAST_READING_TIME: last_reading['reading_time'],
                 LOCATION_KEY: location,
+                METER_NAME: data.get(METER_NAME, None)
               }
 
             return entity_response
@@ -188,7 +191,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         consumption_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
-            name=f"SmartHub Energy {aggregation.label} Usage - {self.account_id} - {location.description}",
+            name=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {location.description}",
             source=DOMAIN,
             statistic_id=consumption_statistic_id,
             unit_class=consumption_unit_class, # required in 2025.11
@@ -198,7 +201,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         return_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
-            name=f"SmartHub Energy {aggregation.label} Return - {self.account_id} - {location.description}",
+            name=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {location.description}",
             source=DOMAIN,
             statistic_id=return_statistic_id,
             unit_class=consumption_unit_class, # required in 2025.11
@@ -340,6 +343,11 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 )
             )
 
+        # If the location description is blank, use the meter name instead.
+        if location.description == "":
+          consumption_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {smarthub_data.get(METER_NAME, None)}"
+          return_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {smarthub_data.get(METER_NAME, None)}"
+
         _LOGGER.info(
             "Adding %s statistics for %s",
             len(consumption_statistics),
@@ -386,7 +394,7 @@ class SmartHubEnergySensor(CoordinatorEntity, SensorEntity):
         # Extract account info for naming
         account_id = config.get("account_id", "Unknown")
 
-        self._attr_name = f"SmartHub Energy Monthly Usage {account_id} {self.location.description}"
+        self._attr_name = f"{self.location.provider} SmartHub Energy Monthly Usage - {account_id} {self.location.description}"
 
         _LOGGER.debug("Initialized SmartHub energy sensor with unique_id: %s", self._attr_unique_id)
 
@@ -420,11 +428,15 @@ class SmartHubEnergySensor(CoordinatorEntity, SensorEntity):
             ATTR_LOCATION_ID: self.location.id,
         }
 
-        # Add last reading time if available
+        # Add last reading time & meter name if available
         if self.coordinator.data:
             last_reading = self.coordinator.data.get(self.location.id).get(ATTR_LAST_READING_TIME)
             if last_reading:
                 attributes[ATTR_LAST_READING_TIME] = last_reading
+
+            meter_name = self.coordinator.data.get(self.location.id).get(METER_NAME)
+            if last_reading:
+                attributes[METER_NAME] = meter_name
 
         return attributes
 
@@ -436,7 +448,7 @@ class SmartHubEnergySensor(CoordinatorEntity, SensorEntity):
 
         return {
             "identifiers": {(DOMAIN, self._config_entry.unique_id or self._config_entry.entry_id)},
-            "name": f"SmartHub Energy Monthly Usage ({account_id} - {self.location.description})",
+            "name": f"{self.location.provider} SmartHub Energy Monthly Usage ({account_id} - {self.location.description})",
             "manufacturer": "SmartHub Coop",
             "model": "Energy Monitor",
             "configuration_url": f"https://{host}",

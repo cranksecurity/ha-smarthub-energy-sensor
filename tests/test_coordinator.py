@@ -84,6 +84,7 @@ async def test_coordinator_first_run_forward_meter(
         id="11111",
         service=ELECTRIC_SERVICE,
         description="test location",
+        provider="test provider",
       )
     ]
 
@@ -151,6 +152,7 @@ async def test_coordinator_first_run_net_meter(
         id="11111",
         service=ELECTRIC_SERVICE,
         description="test location",
+        provider="test provider",
       )
     ]
 
@@ -233,6 +235,7 @@ async def test_coordinator_first_run_return_meter(
         id="11111",
         service=ELECTRIC_SERVICE,
         description="test location",
+        provider="test provider",
       )
     ]
 

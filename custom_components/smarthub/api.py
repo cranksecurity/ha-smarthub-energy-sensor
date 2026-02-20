@@ -19,6 +19,7 @@ from .const import (
     SESSION_TIMEOUT,
     ELECTRIC_SERVICE,
     SUPPORTED_SERVICES,
+    METER_NAME,
 )
 from .exceptions import (
     SmartHubAuthenticationError,
@@ -80,12 +81,14 @@ class SmartHubLocation():
         self,
         id: str,
         service: str,
-        description: str
+        description: str,
+        provider: str,
     )  -> None:
         """Initialize the SmartHubLocation."""
         self.id = id
         self.service = service
         self.description = description
+        self.provider = provider
 
     def __str__(self):
         return f"[SmartHubLocation: '{self.id}' '{self.service}' '{self.description}']"
@@ -226,7 +229,10 @@ class SmartHubAPI:
                             print("RETURN_METER ", parsed_response["USAGE_RETURN"])
 
                         # If there is a NetMeter, use that for both Return and Usage (as it combines both).
+                        # NOTE - there must always be a FORWARD or NET meter - or the "USAGE" is not being returned.
                         if serie.get("name", "") == (net_series if net_series != "" else forward_series):
+                            parsed_response[METER_NAME] = serie.get("name")
+
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response["USAGE"] = self.parse_usage_series(usage_data)
@@ -442,16 +448,17 @@ class SmartHubAPI:
                 _LOGGER.debug(response_json)
 
                 for entry in response_json:
+                  electrical_providers = entry.get("serviceToProviders", {}).get(ELECTRIC_SERVICE,["unknown"])
+                  providerOrServiceDescription = entry.get("providerToDescription",{})
+                  electrical_provider = electrical_providers[0] if electrical_providers else "unknown"
                   for location_id, service_descriptions in entry.get("serviceLocationToUserDataServiceLocationSummaries", {}).items():
                     for service_description in service_descriptions:
                       # for now only support electric service type
                       if any(service in SUPPORTED_SERVICES for service in service_description.get("services",[])):
                         # Try to find a good description
-                        description = service_description.get("description")
+                        description = service_description.get("description", "")
                         if not description or description == "unknown":
-                            description = service_description.get("address")
-                        if not description:
-                            description = service_description.get("id", "unknown")
+                            description = ""
 
                         if entry.get("inactive", False): # assume active by default
                           continue ; # Don't include inactive accounts in list
@@ -461,6 +468,7 @@ class SmartHubAPI:
                             id=location_id,
                             service=ELECTRIC_SERVICE,
                             description=description,
+                            provider=providerOrServiceDescription.get(electrical_provider,electrical_provider),
                           )
                         )
 
