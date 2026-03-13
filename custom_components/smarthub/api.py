@@ -35,6 +35,7 @@ class ParseType(StrEnum):
     FORWARD = "FORWARD"
     NET = "NET"
     RETURN = "RETURN"
+    TOT = "TOTState"
 
 class Aggregation(StrEnum):
     HOURLY = "HOURLY"
@@ -195,6 +196,15 @@ class SmartHubAPI:
             if not isinstance(data, dict):
                 raise SmartHubDataError("Invalid data format: expected dictionary")
 
+            # Debug output non electrical data.
+            for utility in ['TRASH', 'SEWER', 'GAS', 'WATER']:
+              utility_data = data.get("data", {}).get(utility, [])
+              if len(utility_data) != 0:
+                _LOGGER.debug(f"No {utility} data found in response")
+              else:
+                _LOGGER.debug(f"Dumping {utility} data for potential upgrade to sensor")
+                _LOGGER.debug(utility_data)
+
             # Locate the "ELECTRIC" data
             electric_data = data.get("data", {}).get("ELECTRIC", [])
             if len(electric_data) == 0:
@@ -218,7 +228,7 @@ class SmartHubAPI:
                       match flow_direction:
                         case ParseType.FORWARD:
                           forward_series = meter["seriesId"]
-                        case ParseType.NET:
+                        case ParseType.NET | ParseType.TOT: # assume TOTState is NET - until prove otherwise.
                           net_series = meter["seriesId"]
                         case ParseType.RETURN:
                           return_series = meter["seriesId"]
