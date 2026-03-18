@@ -141,55 +141,29 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
                   data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month, aggregation=Aggregation.MONTHLY)
 
-                  if data.get("USAGE", None) is None or len(data.get("USAGE", None)) == 0:
+                  if data[location.service].get("USAGE", None) is None or len(data[location.service].get("USAGE", None)) == 0:
                       _LOGGER.warning("No data received from SmartHub API for location %s", location)
                       # Return previous data if available, otherwise empty dict
                       entity_response[location.id] = {
                         ENERGY_SENSOR_KEY: 0, # no data - no energy usage for the entity.
                         ATTR_LAST_READING_TIME: first_day_of_current_month.replace(tzinfo=ZoneInfo(self.api.timezone)), # use the TZ from the entity so it has consistent formating like 2026-02-01T00:00:00-05:00
                         LOCATION_KEY: location,
-                        METER_NAME: data.get(METER_NAME, None)
+                        METER_NAME: data[location.service].get(METER_NAME, None)
                       }
                       continue
 
-                  last_reading = data.get("USAGE")[-1]
+                  last_reading = data[location.service].get("USAGE")[-1]
                   _LOGGER.debug("Successfully fetched data: %s for location: %s", last_reading, location)
 
                   entity_response[location.id] = {
                     ENERGY_SENSOR_KEY: last_reading['consumption'],
                     ATTR_LAST_READING_TIME: last_reading['reading_time'],
                     LOCATION_KEY: location,
-                    METER_NAME: data.get(METER_NAME, None)
+                    METER_NAME: data[location.service].get(METER_NAME, None)
                   }
               if location.service == GAS_SERVICE:
-                  await self._insert_gas_statistics(location, Aggregation.HOURLY)
-                  await self._insert_gas_statistics(location, Aggregation.DAILY)
-
-                  # Fetch monthly information for entity value
-                  first_day_of_current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-                  data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month, aggregation=Aggregation.MONTHLY)
-
-                  if data.get("GAS", None) is None or len(data.get("GAS", None)) == 0:
-                      _LOGGER.warning("No GAS data received from SmartHub API for location %s", location)
-                      # Return previous data if available, otherwise empty dict
-                      entity_response[location.id] = {
-                        ENERGY_SENSOR_KEY: 0, # no data - no energy usage for the entity.
-                        ATTR_LAST_READING_TIME: first_day_of_current_month.replace(tzinfo=ZoneInfo(self.api.timezone)), # use the TZ from the entity so it has consistent formating like 2026-02-01T00:00:00-05:00
-                        LOCATION_KEY: location,
-                        METER_NAME: data.get(METER_NAME, None)
-                      }
-                      continue
-
-                  last_reading = data.get("GAS")[-1]
-                  _LOGGER.debug("Successfully fetched data: %s for location: %s", last_reading, location)
-
-                  entity_response[location.id] = {
-                    ENERGY_SENSOR_KEY: last_reading['consumption'],
-                    ATTR_LAST_READING_TIME: last_reading['reading_time'],
-                    LOCATION_KEY: location,
-                    METER_NAME: data.get(METER_NAME, None)
-                  }
+                await self._insert_statistics(location, Aggregation.HOURLY)
+                await self._insert_statistics(location, Aggregation.DAILY)
 
             return entity_response
 
@@ -205,158 +179,6 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.exception("Unexpected error fetching SmartHub data: %s", e)
             raise UpdateFailed(f"Unexpected error: {e}") from e
 
-
-
-    async def _insert_gas_statistics(self, location, aggregation: Aggregation):
-        """Retrieve gas usage data asynchronously with retry logic. Always backfills the data overwriting the history based on the collection window."""
-        consumption_statistic_id = f"{DOMAIN}:smarthub_gas_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower() # must be a lower case string.
-
-        consumption_unit_class = (
-            VolumeConverter.UNIT_CLASS
-        )
-        consumption_unit = (
-            UnitOfVolume.CENTUM_CUBIC_FEET
-        )
-        consumption_metadata = StatisticMetaData(
-            mean_type=StatisticMeanType.NONE,
-            has_sum=True,
-            name=f"{location.provider} SmartHub GAS {aggregation.label} Usage - {self.account_id} - {location.description}",
-            source=DOMAIN,
-            statistic_id=consumption_statistic_id,
-            unit_class=consumption_unit_class, # required in 2025.11
-            unit_of_measurement=consumption_unit,
-        )
-
-        last_stat = await get_instance(self.hass).async_add_executor_job(
-            get_last_statistics, self.hass, 1, consumption_statistic_id, True, set()
-        )
-        _LOGGER.debug("gas last_stat for %s: %s", aggregation.label, last_stat)
-
-        smarthub_data = {}
-        if not last_stat:
-            _LOGGER.debug("GAS Updating %s statistic for the first time", aggregation.label)
-            consumption_sum = 0.0
-            last_stats_time = None
-
-            # Initialize with last HISTORICAL_IMPORT_DAYS (usually 90) days of data
-            start_datetime = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=HISTORICAL_IMPORT_DAYS)
-
-            # Load read data for use in populating statistics
-            smarthub_data = await self.api.get_energy_data(location=location, aggregation=aggregation, start_datetime=start_datetime)
-        else:
-            _LOGGER.debug("Checking if data migration is needed for %s...", aggregation.label)
-            migrated = False
-            # SmartHub doesn't hvae any current migrations - this sample code was left
-            # from the opower version
-            #migrated = await self._async_maybe_migrate_statistics(
-            #    account.utility_account_id,
-            #    {
-            #        cost_statistic_id: compensation_statistic_id,
-            #    },
-            #    {
-            #        cost_statistic_id: cost_metadata,
-            #        compensation_statistic_id: compensation_metadata,
-            #        consumption_statistic_id: consumption_metadata,
-            #        return_metadata: return_metadata,
-            #    },
-            #)
-            if migrated:
-                # Skip update to avoid working on old data since the migration is done
-                # asynchronously. Update the statistics in the next refresh in 12h.
-                _LOGGER.debug(
-                    "Statistics migration completed. Skipping update for now"
-                )
-                return
-
-            # Update reads...
-            # Load read data for use in populating statistics
-            start_datetime = datetime.fromtimestamp(last_stat[consumption_statistic_id][0]["start"], tz=timezone.utc)
-
-            # always backdate the start_datetime to ensure no gaps in recorded data
-            start_datetime = start_datetime - timedelta(days=2)
-
-            _LOGGER.debug("Fetching %s statistics from %s", aggregation.label, start_datetime)
-            smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=aggregation)
-
-            if len(smarthub_data.get("GAS")) == 0:
-              _LOGGER.warning("No data received from SmartHub API for location %s to populate historical %s stats", location, aggregation.label)
-              # No new data to record in statatistics
-              return
-
-            start = smarthub_data.get("GAS")[0].get("reading_time")
-            _LOGGER.debug("Getting %s statistics at: %s", aggregation.label, start)
-
-            # In the common case there should be a previous statistic at start time
-            # so we only need to fetch one statistic. If there isn't any, fetch all.
-            # Counterintutitively - but consistent with opower - this aligns the
-            # last Stats collection with the data collected form the server - then imports
-            # and overrights all the data after that point. The opower logic is that the
-            # data might be refreshed, or have collection gaps that are fixed.
-            # Its duplicated for SmartHub as it seems reasonable.
-            for end in (start + timedelta(seconds=1), None):
-                stats = await get_instance(self.hass).async_add_executor_job(
-                    statistics_during_period,
-                    self.hass,
-                    start,
-                    end,
-                    {
-                        consumption_statistic_id,
-                    },
-                    aggregation.period,
-                    None,
-                    {"sum"},
-                )
-                if stats:
-                    break
-                if end:
-                    _LOGGER.debug(
-                        "Not found. Trying to find the oldest statistic after %s",
-                        start,
-                    )
-            # We are in this code path only if get_last_statistics found a stat
-            # so statistics_during_period should also have found at least one.
-            assert stats
-
-            def _safe_get_sum(records: list[Any]) -> float:
-                if records and "sum" in records[0]:
-                    return float(records[0]["sum"])
-                return 0.0
-
-            consumption_sum = _safe_get_sum(stats.get(consumption_statistic_id, []))
-            last_stats_time = stats[consumption_statistic_id][0]["start"]
-
-            _LOGGER.info(f"Updating %s statistics since %s", aggregation.label, last_stats_time)
-
-        consumption_statistics = []
-
-        for cost_read in smarthub_data.get("GAS"):
-            start = cost_read.get("reading_time")
-            if last_stats_time is not None and start.timestamp() <= last_stats_time:
-                continue
-
-            consumption_state = max(0, cost_read.get("consumption"))
-            consumption_sum += consumption_state
-
-            consumption_statistics.append(
-                StatisticData(
-                    start=start, state=consumption_state, sum=consumption_sum
-                )
-            )
-
-        # If the location description is blank, use the meter name instead.
-        if location.description == "":
-          consumption_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} GAS Usage - {self.account_id} - {smarthub_data.get(METER_NAME, None)}"
-
-        _LOGGER.info(
-            "Adding %s statistics for %s",
-            len(consumption_statistics),
-            consumption_statistic_id,
-        )
-        async_add_external_statistics(
-            self.hass, consumption_metadata, consumption_statistics
-        )
-
-
     # https://github.com/tronikos/opower/ was used as a model for how to populate
     # hourly metrics when access to realtime information is not possible via
     # utility dashboards.
@@ -365,12 +187,22 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         consumption_statistic_id = f"{DOMAIN}:smarthub_energy_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower() # must be a lower case string.
         return_statistic_id = f"{DOMAIN}:smarthub_energy_return_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower()
 
-        consumption_unit_class = (
-            EnergyConverter.UNIT_CLASS
-        )
-        consumption_unit = (
-            UnitOfEnergy.KILO_WATT_HOUR
-        )
+        match location.service:
+          case service if service == GAS_SERVICE:
+            consumption_unit_class = (
+                VolumeConverter.UNIT_CLASS
+            )
+            consumption_unit = (
+                UnitOfVolume.CENTUM_CUBIC_FEET
+            )
+          case service if service == ELECTRIC_SERVICE:
+            consumption_unit_class = (
+                EnergyConverter.UNIT_CLASS
+            )
+            consumption_unit = (
+                UnitOfEnergy.KILO_WATT_HOUR
+            )
+
         consumption_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
@@ -444,12 +276,12 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Fetching %s statistics from %s", aggregation.label, start_datetime)
             smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=aggregation)
 
-            if not smarthub_data or not smarthub_data.get("USAGE"):
+            if not smarthub_data or not smarthub_data[location.service].get("USAGE"):
               _LOGGER.warning("No data received from SmartHub API for location %s to populate historical %s stats", location, aggregation.label)
               # No new data to record in statatistics
               return
 
-            start = smarthub_data.get("USAGE")[0].get("reading_time")
+            start = smarthub_data[location.service].get("USAGE")[0].get("reading_time")
             _LOGGER.debug("Getting %s statistics at: %s", aggregation.label, start)
 
             # In the common case there should be a previous statistic at start time
@@ -498,7 +330,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         consumption_statistics = []
         return_statistics      = []
 
-        for cost_read in smarthub_data.get("USAGE", []):
+        for cost_read in smarthub_data[location.service].get("USAGE", []):
             start = cost_read.get("reading_time")
             if last_stats_time is not None and start.timestamp() <= last_stats_time:
                 continue
@@ -512,7 +344,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 )
             )
 
-        for return_read in smarthub_data.get("USAGE_RETURN", []):
+        for return_read in smarthub_data[location.service].get("USAGE_RETURN", []):
             start = return_read.get("reading_time")
             if last_stats_time is not None and start.timestamp() <= last_stats_time:
                 continue
@@ -528,8 +360,8 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
         # If the location description is blank, use the meter name instead.
         if location.description == "":
-          consumption_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {smarthub_data.get(METER_NAME, None)}"
-          return_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {smarthub_data.get(METER_NAME, None)}"
+          consumption_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {smarthub_data[location.service].get(METER_NAME, None)}"
+          return_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {smarthub_data[location.service].get(METER_NAME, None)}"
 
         _LOGGER.info(
             "Adding %s statistics for %s",
@@ -540,7 +372,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             self.hass, consumption_metadata, consumption_statistics
         )
 
-        if "USAGE_RETURN" in smarthub_data:
+        if "USAGE_RETURN" in smarthub_data[location.service]:
           _LOGGER.info(
             "Adding %s return statistics for %s",
             len(return_statistics),

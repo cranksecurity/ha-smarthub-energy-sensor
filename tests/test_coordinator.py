@@ -8,7 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
-from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE
+from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE
 
 from custom_components.smarthub.sensor import SmartHubDataUpdateCoordinator
 from homeassistant.components.recorder import Recorder
@@ -191,12 +191,14 @@ async def test_coordinator_first_run_net_meter(
     }
 
     mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
-    assert mock_smarthub_api.get_energy_data.return_value["USAGE_RETURN"][0]['consumption'] == 5
-    assert mock_smarthub_api.get_energy_data.return_value["USAGE_RETURN"][1]['consumption'] == 1
+    assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][0]['consumption'] == 5
+    assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][1]['consumption'] == 1
 
     coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
 
-    await coordinator._async_update_data()
+    entities = await coordinator._async_update_data()
+    assert len(entities) == 1
+    assert entities["11111"][ENERGY_SENSOR_KEY] == 1
 
     await async_wait_recording_done(hass)
 
@@ -274,8 +276,8 @@ async def test_coordinator_first_run_return_meter(
     }
 
     mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
-    assert mock_smarthub_api.get_energy_data.return_value["USAGE_RETURN"][0]['consumption'] == 5
-    assert mock_smarthub_api.get_energy_data.return_value["USAGE_RETURN"][1]['consumption'] == 1
+    assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][0]['consumption'] == 5
+    assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][1]['consumption'] == 1
 
     coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
 

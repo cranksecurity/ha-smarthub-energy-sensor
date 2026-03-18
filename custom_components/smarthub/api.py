@@ -188,7 +188,7 @@ class SmartHubAPI:
             SmartHubDataError: If there's an error parsing the data.
         """
         try:
-            parsed_response = {}
+            parsed_response = {ELECTRIC_SERVICE:{},GAS_SERVICE:{}}
 
             if not isinstance(data, dict):
                 raise SmartHubDataError("Invalid data format: expected dictionary")
@@ -239,22 +239,22 @@ class SmartHubAPI:
                     for serie in series:
                         if serie.get("name", "") == return_series:
                             usage_data = serie.get("data", [])
-                            parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.RETURN)
-                            _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
+                            parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.RETURN)
+                            _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
 
                         # If there is a NetMeter, use that for both Return and Usage (as it combines both).
                         # NOTE - there must always be a FORWARD or NET meter - or the "USAGE" is not being returned.
                         if serie.get("name", "") == (net_series if net_series != "" else forward_series):
-                            parsed_response[METER_NAME] = serie.get("name")
+                            parsed_response[ELECTRIC_SERVICE][METER_NAME] = serie.get("name")
 
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
-                            parsed_response["USAGE"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for USAGE history", len(parsed_response["USAGE"]))
+                            parsed_response[ELECTRIC_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
+                            _LOGGER.debug("Parsed %d items for USAGE history", len(parsed_response[ELECTRIC_SERVICE]["USAGE"]))
 
                             if net_series != "":
-                              parsed_response["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
-                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
+                              parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
+                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
                 else:
                     _LOGGER.debug("Unknown Usage: %s", entry)
 
@@ -272,12 +272,12 @@ class SmartHubAPI:
                         _LOGGER.warning("Multiple GAS series: %s", series)
 
                     for serie in series:
-                            parsed_response[METER_NAME] = serie.get("name")
+                            parsed_response[GAS_SERVICE][METER_NAME] = serie.get("name")
 
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
-                            parsed_response["GAS"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for GAS USAGE history", len(parsed_response["GAS"]))
+                            parsed_response[GAS_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
+                            _LOGGER.debug("Parsed %d items for GAS USAGE history", len(parsed_response[GAS_SERVICE]["USAGE"]))
 
                 else:
                     _LOGGER.debug("Unknown Usage: %s", entry)

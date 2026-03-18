@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
-from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE
+from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE, GAS_SERVICE
 
 
 @pytest.fixture
@@ -76,9 +76,9 @@ def test_parse_usage_valid_data(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 2
-    assert result["USAGE"][1]["consumption"] == 150.2
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 150.2
 
 def test_parse_usage_offset_hourly(api_instance):
     """Test parsing valid usage data."""
@@ -108,11 +108,11 @@ def test_parse_usage_offset_hourly(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 2
-    assert result["USAGE"][0]["consumption"] == 111.6
-    assert result["USAGE"][1]["consumption"] == 1.1
-    assert result["USAGE"][1]["raw_timestamp"] == 1762218000000 # not 1762218900000, because thats :15 min after the hour
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
+    assert result[ELECTRIC_SERVICE]["USAGE"][0]["consumption"] == 111.6
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 1.1
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["raw_timestamp"] == 1762218000000 # not 1762218900000, because thats :15 min after the hour
 
 def test_parse_usage_offset_start(api_instance):
     """Test parsing valid usage data."""
@@ -142,11 +142,11 @@ def test_parse_usage_offset_start(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 2
-    assert result["USAGE"][0]["consumption"] == 111.6
-    assert result["USAGE"][1]["consumption"] == 1.1
-    assert result["USAGE"][1]["raw_timestamp"] == 1762218000000
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
+    assert result[ELECTRIC_SERVICE]["USAGE"][0]["consumption"] == 111.6
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 1.1
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["raw_timestamp"] == 1762218000000
 
 def test_parse_usage_fifteen_min(api_instance):
     """Test parsing valid usage data."""
@@ -176,10 +176,10 @@ def test_parse_usage_fifteen_min(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 1
-    assert result["USAGE"][0]["consumption"] == 1112.0
-    assert result["USAGE"][0]["raw_timestamp"] == 1762218000000
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 1
+    assert result[ELECTRIC_SERVICE]["USAGE"][0]["consumption"] == 1112.0
+    assert result[ELECTRIC_SERVICE]["USAGE"][0]["raw_timestamp"] == 1762218000000
 
 def test_parse_usage_no_data(api_instance):
     """Test parsing when no usage data is available."""
@@ -187,10 +187,11 @@ def test_parse_usage_no_data(api_instance):
 
     result = api_instance.parse_usage(test_data)
 
-    # parse_usage returns {} if no usage found (or rather, the dict might be empty of USAGE key)
+    # parse_usage returns {} for each service if no usage found (or rather, the dict might be empty of USAGE key)
     # Looking at code: parsed_response = {}, if len(electric_data) == 0 log warning.
     # Returns parsed_response. So it returns {}.
-    assert result == {}
+    assert result[ELECTRIC_SERVICE] == {}
+    assert result[GAS_SERVICE] == {}
 
 def test_parse_usage_no_usage(api_instance):
     """Test parsing when no usage data is available."""
@@ -213,8 +214,8 @@ def test_parse_usage_no_usage(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 0
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 0
 
 
 def test_parse_usage_invalid_data(api_instance):

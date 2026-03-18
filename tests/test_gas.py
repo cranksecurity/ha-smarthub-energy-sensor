@@ -8,7 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
-from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE, GAS_SERVICE
+from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE, GAS_SERVICE
 from custom_components.smarthub.sensor import SmartHubDataUpdateCoordinator
 from homeassistant.components.recorder import Recorder, get_instance
 
@@ -135,11 +135,13 @@ def test_parse_usage_valid_data(api_instance):
     result = api_instance.parse_usage(test_data)
 
     assert result is not None
-    assert "USAGE" in result
-    assert len(result["USAGE"]) == 2
-    assert result["USAGE"][1]["consumption"] == 150.2
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 150.2
 
-
+    assert "USAGE" in result[GAS_SERVICE]
+    assert len(result[GAS_SERVICE]["USAGE"]) == 2
+    assert result[GAS_SERVICE]["USAGE"][1]["consumption"] == 2.64
 
 async def test_coordinator_first_run_gas_electric(
     recorder_mock: Recorder,
@@ -211,7 +213,9 @@ async def test_coordinator_first_run_gas_electric(
 
     coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
 
-    await coordinator._async_update_data()
+    entities = await coordinator._async_update_data()
+    assert len(entities) == 1
+    assert entities["11111"][ENERGY_SENSOR_KEY] == 150.2
 
     await async_wait_recording_done(hass)
 
@@ -236,7 +240,7 @@ async def test_coordinator_first_run_gas_electric(
         dt_util.utc_from_timestamp(0),
         None,
         {
-            "smarthub:smarthub_gas_sensor_daily_123456_gas_11112",
+            "smarthub:smarthub_energy_sensor_daily_123456_gas_11112",
         },
         "hour",
         None,
@@ -245,7 +249,7 @@ async def test_coordinator_first_run_gas_electric(
 
     # The first hour's statistics summary is...
     assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 100.5
-    assert gas_stats["smarthub:smarthub_gas_sensor_daily_123456_gas_11112"][0]["sum"] == 3.2 # must be lowercase
+    assert gas_stats["smarthub:smarthub_energy_sensor_daily_123456_gas_11112"][0]["sum"] == 3.2 # must be lowercase
 
 async def async_wait_recording_done(hass) -> None:
     """Async wait until recording is done."""
