@@ -145,6 +145,33 @@ def test_parse_locations(api_instance):
             'serviceToProviders': {'SEWER': ['4SEWR'], 'ELEC': ['3ELEC'], 'TRASH': ['5TRSH'], 'WATER': ['1WATR'], 'NGAS': ['2NGAS']},
             'serviceLocationToProviders': {'5XX12XX0YY': ['1WATR', '4SEWR', '3ELEC', '2NGAS', '5TRSH']}, 'consumerClassCode': '', 'providerOrServiceDescription': 'City Utilities', 'invoiceGroupNumber': '', 'isUnCollectible': False, 'isAutoPay': True, 'isPendingDisconnect': False, 'isDisconnected': False, 'isMultiService': False, 'agreementStatus': 1, 'disconnectNonPay': False,
             'services': ['WATER', 'NGAS', 'ELEC', 'SEWER', 'TRASH']
+        },
+        {
+            'customer': 'blueagewizard', 'customerName': 'Customer', 'account': 'XXXXXXX', 'address': 'Address', 'email': '**********', 'inactive': False, 'primaryServiceLocationId': '5123',
+            'serviceLocationIdToServiceLocationSummary': {
+              '5123': {
+                'id': {'srvLocNbr': '5123', 'serviceLocation': '5123'},
+                'location': '7FF1GGHHII',
+                'address': {'addr1': 'Street', 'Street': 'City', 'state': 'State', 'zip': 'Zip'},
+                'serviceStatus': 'ACTIVE', 'lastBillPrevReadDtTm': 1767852000000, 'lastBillPresReadDtTm': 1770357600000,
+                'meterNumbersToExternalMeterBaseIds': { '65740': '5123+2'},
+                'activeRateSchedules': ["12:VZ"]}},
+            'serviceLocationToUserDataServiceLocationSummaries': {
+                "5123": [
+                  {
+                    "services": ["VELEC"],
+                    "serviceStatus": "ACTIVE",
+                    "activeRateSchedules": ["12:VZ"]
+                  }
+                ]
+              },
+            'serviceLocationToIndustries': {"5123": ["ELECTRIC"]},
+            'providerToDescription': {'ALL': 'City Utilities'},
+            'providerToProviderDescription': {'ALL': 'City Utilities'},
+            'serviceToServiceDescription': { "VELEC": "VZ ELECTRIC SERVICE"},
+            'serviceToProviders': {'ELEC': ['VELEC']},
+            'serviceLocationToProviders': {'5123': ['VELEC']}, 'consumerClassCode': '', 'providerOrServiceDescription': 'City Utilities', 'invoiceGroupNumber': '', 'isUnCollectible': False, 'isAutoPay': True, 'isPendingDisconnect': False, 'isDisconnected': False, 'isMultiService': False, 'agreementStatus': 1, 'disconnectNonPay': False,
+            'services': ['VELEC']
         }
     ]
 
@@ -174,12 +201,17 @@ def test_parse_locations(api_instance):
         description="",
         provider="3ELEC",
       ),
+      SmartHubLocation(
+        id="5123",
+        service=ELECTRIC_SERVICE,
+        description="",
+        provider="unknown",
+      ),
     ]
 
     assert len(result) == len(expected_locations)
     for a,b in zip(result, expected_locations):
       compare_SmartHubLocation(a,b)
-
 
 def test_parse_locations_cvea(api_instance):
     """Test parsing CVEA location with custom service codes and descriptions."""
@@ -205,10 +237,10 @@ def test_parse_locations_cvea(api_instance):
     ]
 
     result = api_instance.parse_locations(test_data)
-    
+
     # We expect two locations to be found
     assert len(result) == 2
-    
+
     # Check Valdez location
     valdez = next(l for l in result if l.id == 'LOC_VALDEZ')
     assert valdez.service == ELECTRIC_SERVICE
@@ -220,7 +252,6 @@ def test_parse_locations_cvea(api_instance):
     assert glenn.service == ELECTRIC_SERVICE
     assert glenn.description == 'Glennallen Shop'
     assert glenn.provider == 'CVEA Glennallen'
-
 
 def compare_SmartHubLocation(a: SmartHubLocation, b: SmartHubLocation):
     """comprae two SmartHubLocation objects."""

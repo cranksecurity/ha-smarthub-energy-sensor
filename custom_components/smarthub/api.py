@@ -188,25 +188,16 @@ class SmartHubAPI:
             SmartHubDataError: If there's an error parsing the data.
         """
         try:
-            parsed_response = {ELECTRIC_SERVICE:{},GAS_SERVICE:{}}
+            parsed_response = {}
+            # Initialize all supported services to empty set
+            for service in SUPPORTED_SERVICES:
+              parsed_response[service]={}
 
             if not isinstance(data, dict):
                 raise SmartHubDataError("Invalid data format: expected dictionary")
 
-            # Debug output non electrical data.
-            for utility in data.get("data", {}).keys():
-              if utility in ['ELECTRIC']:
-                continue
-
-              utility_data = data.get("data", {}).get(utility, [])
-              if len(utility_data) == 0:
-                _LOGGER.debug(f"No {utility} data found in response")
-              else:
-                _LOGGER.debug(f"Dumping {utility} data for potential upgrade to sensor")
-                _LOGGER.debug(utility_data)
-
             # Locate the "ELECTRIC" data
-            electric_data = data.get("data", {}).get("ELECTRIC", [])
+            electric_data = data.get("data", {}).get(ELECTRIC_SERVICE, [])
             if len(electric_data) == 0:
               _LOGGER.warning("No ELECTRIC data found in response")
               _LOGGER.debug(data)
@@ -347,12 +338,12 @@ class SmartHubAPI:
           # Loop through the locations looking for the service description `ELECTRIC_SERVICE` which maps the service key - usually ELEC, but sometimes 1ELEC
           electricServiceKeys = {
                 service for service, desc in serviceToServiceDescription.items()
-                if isinstance(desc, str) and ELECTRIC_SERVICE.lower() in desc.lower()
+                if isinstance(desc, str) and ELECTRIC_SERVICE.casefold() in desc.casefold()
           }
 
           # Some smarthub systems don't return 'Electric Service' as a distinct entity. hsvutil.smarthub.coop returns
           # 'serviceToServiceDescription': {'WATER|NGAS|ELEC|SEWER|TRASH': 'City Utilities'},
-          for fallback in FALLBACK_SERVICES:
+          for fallback in FALLBACK_ELECTRIC_SERVICES:
             if fallback in services:
               electric_service_keys.add(fallback)
 
@@ -587,7 +578,7 @@ class SmartHubAPI:
             "includeDemand": False,
             "serviceLocationNumber": location.id,
             "accountNumber": self.account_id,
-            "industries": ['WATER','ELECTRIC', 'GAS'], # TODO: can be filtered by the industries supported in a location object - or request - or calling functions can call once for multiple services.
+            "industries": SUPPORTED_SERVICES, # TODO: can be filtered by the industries supported in a location object - or request - or calling functions can call once for multiple services.
             "startDateTime": str(start_timestamp),
             "endDateTime": str(end_timestamp),
         }
