@@ -18,6 +18,7 @@ from .const import (
     RETRY_DELAY,
     SESSION_TIMEOUT,
     ELECTRIC_SERVICE,
+    GAS_SERVICE,
     SUPPORTED_SERVICES,
     FALLBACK_SERVICES,
     METER_NAME,
@@ -192,6 +193,18 @@ class SmartHubAPI:
             if not isinstance(data, dict):
                 raise SmartHubDataError("Invalid data format: expected dictionary")
 
+            # Debug output non electrical data.
+            for utility in data.get("data", {}).keys():
+              if utility in ['ELECTRIC']:
+                continue
+
+              utility_data = data.get("data", {}).get(utility, [])
+              if len(utility_data) == 0:
+                _LOGGER.debug(f"No {utility} data found in response")
+              else:
+                _LOGGER.debug(f"Dumping {utility} data for potential upgrade to sensor")
+                _LOGGER.debug(utility_data)
+
             # Locate the "ELECTRIC" data
             electric_data = data.get("data", {}).get("ELECTRIC", [])
             if len(electric_data) == 0:
@@ -244,6 +257,31 @@ class SmartHubAPI:
                               _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response["USAGE_RETURN"]))
                 else:
                     _LOGGER.debug("Unknown Usage: %s", entry)
+
+            gasData = data.get("data", {}).get("GAS", [])
+            if len(gasData) == 0:
+              _LOGGER.warning("No GAS data found in response")
+              _LOGGER.debug(data)
+
+            for entry in gasData:
+                if entry.get("type","") == "USAGE":
+                    _LOGGER.debug("Usage: %s", entry)
+
+                    series = entry.get("series", [])
+                    if len(series) > 1:
+                        _LOGGER.warning("Multiple GAS series: %s", series)
+
+                    for serie in series:
+                            parsed_response[METER_NAME] = serie.get("name")
+
+                            # Extract the last data point in the "data" array
+                            usage_data = serie.get("data", [])
+                            parsed_response["GAS"] = self.parse_usage_series(usage_data)
+                            _LOGGER.debug("Parsed %d items for GAS USAGE history", len(parsed_response["GAS"]))
+
+                else:
+                    _LOGGER.debug("Unknown Usage: %s", entry)
+
 
             return parsed_response
 
@@ -307,7 +345,7 @@ class SmartHubAPI:
           providerOrServiceDescription = entry.get("providerToDescription",{})
 
           # Loop through the locations looking for the service description `ELECTRIC_SERVICE` which maps the service key - usually ELEC, but sometimes 1ELEC
-          electric_service_keys = {
+          electricServiceKeys = {
                 service for service, desc in serviceToServiceDescription.items()
                 if isinstance(desc, str) and ELECTRIC_SERVICE.lower() in desc.lower()
           }
@@ -318,13 +356,13 @@ class SmartHubAPI:
             if fallback in services:
               electric_service_keys.add(fallback)
 
-          for electric_service in electric_service_keys:
-              electrical_providers = serviceToProviders.get(electric_service,["unknown"])
-              electrical_provider = electrical_providers[0] if electrical_providers else "unknown"
+          for electricService in electricServiceKeys:
+              electricalProviders = serviceToProviders.get(electricService,["unknown"])
+              electricalProvider = electricalProviders[0] if electricalProviders else "unknown"
               for locationID, serviceDescriptions in serviceLocationToUserDataServiceLocationSummaries.items():
                 for serviceDescription in serviceDescriptions:
                   # for now only support electric service type
-                  if any(service in [electric_service] for service in serviceDescription.get("services",[])):
+                  if any(service in [electricService] for service in serviceDescription.get("services",[])):
                     # Try to find a good description
                     description = serviceDescription.get("description", "")
 
@@ -333,7 +371,28 @@ class SmartHubAPI:
                         id=locationID,
                         service=ELECTRIC_SERVICE,
                         description=description,
-                        provider=providerOrServiceDescription.get(electrical_provider,electrical_provider),
+                        provider=providerOrServiceDescription.get(electricalProvider,electricalProvider),
+                      )
+                    )
+
+          gasServiceKeys = {"GAS"}
+
+          for gasService in gasServiceKeys:
+              gasProviders = serviceToProviders.get(gasService,["unknown"])
+              gasProvider = gasProviders[0] if gasProviders else "unknown"
+              for locationID, serviceDescriptions in serviceLocationToUserDataServiceLocationSummaries.items():
+                for serviceDescription in serviceDescriptions:
+                  # for now only support electric service type
+                  if any(service in [gasService] for service in serviceDescription.get("services",[])):
+                    # Try to find a good description
+                    description = serviceDescription.get("description", "")
+
+                    locations.append(
+                      SmartHubLocation(
+                        id=f"gas_{locationID}", # keep district from electrical
+                        service=GAS_SERVICE,
+                        description=description,
+                        provider=providerOrServiceDescription.get(gasProvider,gasProvider),
                       )
                     )
 
@@ -528,7 +587,7 @@ class SmartHubAPI:
             "includeDemand": False,
             "serviceLocationNumber": location.id,
             "accountNumber": self.account_id,
-            "industries": ["ELECTRIC"],
+            "industries": ['WATER','ELECTRIC', 'GAS'], # TODO: can be filtered by the industries supported in a location object - or request - or calling functions can call once for multiple services.
             "startDateTime": str(start_timestamp),
             "endDateTime": str(end_timestamp),
         }

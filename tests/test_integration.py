@@ -280,11 +280,3 @@ def test_smarthub_api_basic_functionality():
     assert api.mfa_totp == "123456"
     assert api.host == "test.smarthub.coop"
     assert api.token is None
-
-def compare_SmartHubLocation(a: SmartHubLocation, b: SmartHubLocation):
-    """comprae two SmartHubLocation objects."""
-    # Test that API object is created correctly
-    assert a.id == b.id
-    assert a.service == b.service
-    assert a.description == b.description
-    assert a.provider == b.provider

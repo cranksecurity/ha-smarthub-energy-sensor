@@ -34,5 +34,6 @@ METER_NAME   = "meter_name"
 
 # List of supported services provided by the smarthub endpoint
 ELECTRIC_SERVICE = "electric"
+GAS_SERVICE = "GAS"
 SUPPORTED_SERVICES = [ELECTRIC_SERVICE]
 FALLBACK_SERVICES = ["ELEC", "1ELEC", "VELEC", "GELEC"]
