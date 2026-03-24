@@ -21,7 +21,8 @@ from .const import (
     GAS_SERVICE,
     WATER_SERVICE,
     SUPPORTED_SERVICES,
-    FALLBACK_SERVICES,
+    FALLBACK_ELECTRIC_SERVICES,
+    FALLBACK_GAS_SERVICES,
     METER_NAME,
 )
 from .exceptions import (
@@ -370,7 +371,7 @@ class SmartHubAPI:
           # 'serviceToServiceDescription': {'WATER|NGAS|ELEC|SEWER|TRASH': 'City Utilities'},
           for fallback in FALLBACK_ELECTRIC_SERVICES:
             if fallback in services:
-              electric_service_keys.add(fallback)
+              electricServiceKeys.add(fallback)
 
           for electricService in electricServiceKeys:
               electricalProviders = serviceToProviders.get(electricService,["unknown"])
@@ -391,7 +392,10 @@ class SmartHubAPI:
                       )
                     )
 
-          gasServiceKeys = {"NGAS"}
+          gasServiceKeys = set()
+          for fallback in FALLBACK_GAS_SERVICES:
+            if fallback in services:
+              gasServiceKeys.add(fallback)
 
           for gasService in gasServiceKeys:
               gasProviders = serviceToProviders.get(gasService,["unknown"])
