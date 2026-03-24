@@ -142,7 +142,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
                   data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month, aggregation=Aggregation.MONTHLY)
 
-                  if data[location.service].get("USAGE", None) is None or len(data[location.service].get("USAGE", None)) == 0:
+                  if len(data[location.service].get("USAGE", [])) == 0:
                       _LOGGER.warning("No data received from SmartHub API for location %s", location)
                       # Return previous data if available, otherwise empty dict
                       entity_response[location.id] = {

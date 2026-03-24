@@ -207,7 +207,7 @@ class SmartHubAPI:
             for entry in electric_data:
                 # Find the entry with type "USAGE"
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("Usage: %s", entry)
+                    _LOGGER.debug("ELECTRICAL Usage: %s", entry)
 
                     meters = entry.get("meters", [])
                     forward_series = ""
@@ -258,7 +258,7 @@ class SmartHubAPI:
 
             for entry in gasData:
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("Usage: %s", entry)
+                    _LOGGER.debug("GAS Usage: %s", entry)
 
                     series = entry.get("series", [])
                     if len(series) > 1:
@@ -282,7 +282,7 @@ class SmartHubAPI:
 
             for entry in waterData:
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("Usage: %s", entry)
+                    _LOGGER.debug("WATER Usage: %s", entry)
 
                     series = entry.get("series", [])
                     if len(series) > 1:
