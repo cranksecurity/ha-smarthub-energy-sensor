@@ -59,6 +59,7 @@ from .const import (
     METER_NAME,
     ELECTRIC_SERVICE,
     GAS_SERVICE,
+    WATER_SERVICE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -164,6 +165,9 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
               if location.service == GAS_SERVICE:
                 await self._insert_statistics(location, Aggregation.HOURLY)
                 await self._insert_statistics(location, Aggregation.DAILY)
+              if location.service == WATER_SERVICE:
+                # Water is often only reported monthly
+                await self._insert_statistics(location, Aggregation.MONTHLY)
 
             return entity_response
 
@@ -188,7 +192,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         return_statistic_id = f"{DOMAIN}:smarthub_energy_return_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower()
 
         match location.service:
-          case service if service == GAS_SERVICE:
+          case service if service == GAS_SERVICE or service == WATER_SERVICE:
             consumption_unit_class = (
                 VolumeConverter.UNIT_CLASS
             )
@@ -271,7 +275,11 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             start_datetime = datetime.fromtimestamp(last_stat[consumption_statistic_id][0]["start"], tz=timezone.utc)
 
             # always backdate the start_datetime to ensure no gaps in recorded data
-            start_datetime = start_datetime - timedelta(days=2)
+            match aggregation:
+              case Aggregation.MONTHLY:
+                start_datetime = start_datetime - timedelta(months=2)
+              case Aggregation.HOURLY | Aggregation.DAILY:
+                start_datetime = start_datetime - timedelta(days=2)
 
             _LOGGER.debug("Fetching %s statistics from %s", aggregation.label, start_datetime)
             smarthub_data = await self.api.get_energy_data(location=location, start_datetime=start_datetime, aggregation=aggregation)

@@ -2,7 +2,7 @@
 import pytest
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubLocation
-from custom_components.smarthub.const import ELECTRIC_SERVICE
+from custom_components.smarthub.const import ELECTRIC_SERVICE, GAS_SERVICE, WATER_SERVICE
 
 @pytest.fixture
 def api_instance():
@@ -200,6 +200,18 @@ def test_parse_locations(api_instance):
         service=ELECTRIC_SERVICE,
         description="",
         provider="3ELEC",
+      ),
+      SmartHubLocation(
+        id="GAS_5XX12XX0YY", # will be lowercase in the statistic
+        service=GAS_SERVICE,
+        description="",
+        provider="2NGAS",
+      ),
+      SmartHubLocation(
+        id="WATER_5XX12XX0YY", # will be lowercase in the statistic
+        service=WATER_SERVICE,
+        description="",
+        provider="1WATR",
       ),
       SmartHubLocation(
         id="5123",

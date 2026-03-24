@@ -19,6 +19,7 @@ from .const import (
     SESSION_TIMEOUT,
     ELECTRIC_SERVICE,
     GAS_SERVICE,
+    WATER_SERVICE,
     SUPPORTED_SERVICES,
     FALLBACK_SERVICES,
     METER_NAME,
@@ -273,6 +274,30 @@ class SmartHubAPI:
                 else:
                     _LOGGER.debug("Unknown Usage: %s", entry)
 
+            waterData = data.get("data", {}).get("WATER", [])
+            if len(waterData) == 0:
+              _LOGGER.warning("No WATER data found in response")
+              _LOGGER.debug(data)
+
+            for entry in waterData:
+                if entry.get("type","") == "USAGE":
+                    _LOGGER.debug("Usage: %s", entry)
+
+                    series = entry.get("series", [])
+                    if len(series) > 1:
+                        _LOGGER.warning("Multiple WATER series: %s", series)
+
+                    for serie in series:
+                            parsed_response[WATER_SERVICE][METER_NAME] = serie.get("name")
+
+                            # Extract the last data point in the "data" array
+                            usage_data = serie.get("data", [])
+                            parsed_response[WATER_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
+                            _LOGGER.debug("Parsed %d items for WATER USAGE history", len(parsed_response[WATER_SERVICE]["USAGE"]))
+
+                else:
+                    _LOGGER.debug("Unknown Usage: %s", entry)
+
 
             return parsed_response
 
@@ -366,7 +391,7 @@ class SmartHubAPI:
                       )
                     )
 
-          gasServiceKeys = {"GAS"}
+          gasServiceKeys = {"NGAS"}
 
           for gasService in gasServiceKeys:
               gasProviders = serviceToProviders.get(gasService,["unknown"])
@@ -380,12 +405,34 @@ class SmartHubAPI:
 
                     locations.append(
                       SmartHubLocation(
-                        id=f"gas_{locationID}", # keep district from electrical
+                        id=f"GAS_{locationID}", # keep district from electrical
                         service=GAS_SERVICE,
                         description=description,
                         provider=providerOrServiceDescription.get(gasProvider,gasProvider),
                       )
                     )
+
+          waterServiceKeys = {"WATER"}
+
+          for waterService in waterServiceKeys:
+              waterProviders = serviceToProviders.get(waterService,["unknown"])
+              waterProvider = waterProviders[0] if waterProviders else "unknown"
+              for locationID, serviceDescriptions in serviceLocationToUserDataServiceLocationSummaries.items():
+                for serviceDescription in serviceDescriptions:
+                  # for now only support electric service type
+                  if any(service in [waterService] for service in serviceDescription.get("services",[])):
+                    # Try to find a good description
+                    description = serviceDescription.get("description", "")
+
+                    locations.append(
+                      SmartHubLocation(
+                        id=f"WATER_{locationID}", # keep district from electrical
+                        service=WATER_SERVICE,
+                        description=description,
+                        provider=providerOrServiceDescription.get(waterProvider,waterProvider),
+                      )
+                    )
+
 
         return locations
 

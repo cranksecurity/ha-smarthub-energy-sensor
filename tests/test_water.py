@@ -8,7 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
-from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE, GAS_SERVICE
+from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE, WATER_SERVICE
 from custom_components.smarthub.sensor import SmartHubDataUpdateCoordinator
 from homeassistant.components.recorder import Recorder, get_instance
 
@@ -106,7 +106,7 @@ def test_parse_usage_valid_data(api_instance):
                     ]
                 }
             ],
-            "GAS": [
+            "WATER": [
                 {
                     "type": "USAGE",
                     "series": [
@@ -139,11 +139,11 @@ def test_parse_usage_valid_data(api_instance):
     assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
     assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 150.2
 
-    assert "USAGE" in result[GAS_SERVICE]
-    assert len(result[GAS_SERVICE]["USAGE"]) == 2
-    assert result[GAS_SERVICE]["USAGE"][1]["consumption"] == 2.64
+    assert "USAGE" in result[WATER_SERVICE]
+    assert len(result[WATER_SERVICE]["USAGE"]) == 2
+    assert result[WATER_SERVICE]["USAGE"][1]["consumption"] == 2.64
 
-async def test_coordinator_first_run_gas_electric(
+async def test_coordinator_first_run_water_electric(
     recorder_mock: Recorder,
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -158,8 +158,8 @@ async def test_coordinator_first_run_gas_electric(
         provider="test provider",
       ),
       SmartHubLocation(
-        id="Gas_11112", # will be lowercase in the statistic
-        service=GAS_SERVICE,
+        id="WATER_11112", # will be lowercase in the statistic
+        service=WATER_SERVICE,
         description="test location",
         provider="test provider",
       )
@@ -183,7 +183,7 @@ async def test_coordinator_first_run_gas_electric(
                     ]
                 }
             ],
-            "GAS": [
+            "WATER": [
                 {
                     "type": "USAGE",
                     "series": [
@@ -234,13 +234,13 @@ async def test_coordinator_first_run_gas_electric(
     )
 
     # Check stats for electric account '111111'
-    gas_stats = await get_instance(hass).async_add_executor_job(
+    water_stats = await get_instance(hass).async_add_executor_job(
         statistics_during_period,
         hass,
         dt_util.utc_from_timestamp(0),
         None,
         {
-            "smarthub:smarthub_energy_sensor_daily_123456_gas_11112",
+            "smarthub:smarthub_energy_sensor_monthly_123456_water_11112",
         },
         "hour",
         None,
@@ -249,7 +249,7 @@ async def test_coordinator_first_run_gas_electric(
 
     # The first hour's statistics summary is...
     assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 100.5
-    assert gas_stats["smarthub:smarthub_energy_sensor_daily_123456_gas_11112"][0]["sum"] == 3.2 # must be lowercase
+    assert water_stats["smarthub:smarthub_energy_sensor_monthly_123456_water_11112"][0]["sum"] == 3.2 # must be lowercase
 
 async def async_wait_recording_done(hass) -> None:
     """Async wait until recording is done."""
