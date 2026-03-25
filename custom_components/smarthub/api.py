@@ -686,7 +686,7 @@ class SmartHubAPI:
                     if status == "PENDING":
                         _LOGGER.debug("Attempt %d: Status is PENDING, retrying...", attempt)
                         if attempt < MAX_RETRIES:
-                            await asyncio.sleep(RETRY_DELAY)
+                            await asyncio.sleep(RETRY_DELAY + attempt*RETRY_DELAY)
                             continue
                         else:
                             _LOGGER.warning("Maximum retries reached, data still PENDING")

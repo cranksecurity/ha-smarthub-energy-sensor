@@ -19,7 +19,7 @@ MAX_POLL_INTERVAL = 1440  # Maximum 24 hours
 
 # API constants
 DEFAULT_TIMEOUT = 30  # seconds
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 RETRY_DELAY = 5  # seconds
 SESSION_TIMEOUT = 300  # 5 minutes - force session refresh
 HISTORICAL_IMPORT_DAYS = 90 # number of days for initial import
