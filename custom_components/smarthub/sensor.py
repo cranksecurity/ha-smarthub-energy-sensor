@@ -131,6 +131,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             entity_response = {}
 
             for location in locations:
+              _LOGGER.debug("Attempting to fetch from SmartHub API for location %s", location)
               if location.service == ELECTRIC_SERVICE:
                   # Because SmartHub provides historical usage/cost with delay of a
                   # number of hours we need to insert data into statistics.
@@ -277,7 +278,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             # always backdate the start_datetime to ensure no gaps in recorded data
             match aggregation:
               case Aggregation.MONTHLY:
-                start_datetime = start_datetime - timedelta(months=2)
+                start_datetime = start_datetime - timedelta(months=6)
               case Aggregation.HOURLY | Aggregation.DAILY:
                 start_datetime = start_datetime - timedelta(days=2)
 

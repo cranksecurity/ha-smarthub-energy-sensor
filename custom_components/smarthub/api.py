@@ -634,7 +634,7 @@ class SmartHubAPI:
             "endDateTime": str(end_timestamp),
         }
 
-        _LOGGER.debug("Requesting energy data from: %s", poll_url)
+        _LOGGER.debug("Requesting energy data from: %s startDateTime: %s endDateTime: %s aggregation: %s", poll_url, str(start_timestamp), str(end_timestamp), aggregation.value)
 
         # Track if we've already tried refreshing the token
         token_refreshed = False
