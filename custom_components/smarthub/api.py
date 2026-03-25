@@ -696,7 +696,13 @@ class SmartHubAPI:
                         return self.parse_usage(response_json)
                     else:
                         _LOGGER.warning("Unexpected status in response: %s", status)
-                        return None
+                        _LOGGER.debug(response_json)
+                        # prevent failure - return empty dataset
+                        return {
+                          ELECTRIC_SERVICE : {"USAGE":[]},
+                          GAS_SERVICE : {"USAGE":[]},
+                          WATER_SERVICE : {"USAGE":[]},
+                        }
 
             except SmartHubAuthenticationError:
                 # Re-raise auth errors immediately
