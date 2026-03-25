@@ -158,7 +158,7 @@ async def test_coordinator_first_run_water_electric(
         provider="test provider",
       ),
       SmartHubLocation(
-        id="WATER_11112", # will be lowercase in the statistic
+        id="11112", # ID could be the same or unique from electric.
         service=WATER_SERVICE,
         description="test location",
         provider="test provider",
@@ -240,7 +240,7 @@ async def test_coordinator_first_run_water_electric(
         dt_util.utc_from_timestamp(0),
         None,
         {
-            "smarthub:smarthub_energy_sensor_monthly_123456_water_11112",
+            "smarthub:smarthub_water_sensor_monthly_123456_11112",
         },
         "hour",
         None,
@@ -249,7 +249,7 @@ async def test_coordinator_first_run_water_electric(
 
     # The first hour's statistics summary is...
     assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 100.5
-    assert water_stats["smarthub:smarthub_energy_sensor_monthly_123456_water_11112"][0]["sum"] == 3.2 # must be lowercase
+    assert water_stats["smarthub:smarthub_water_sensor_monthly_123456_11112"][0]["sum"] == 3.2 # must be lowercase
 
 async def async_wait_recording_done(hass) -> None:
     """Async wait until recording is done."""

@@ -409,7 +409,7 @@ class SmartHubAPI:
 
                     locations.append(
                       SmartHubLocation(
-                        id=f"GAS_{locationID}", # keep district from electrical
+                        id=locationID, # used by the API to fetch the usage data
                         service=GAS_SERVICE,
                         description=description,
                         provider=providerOrServiceDescription.get(gasProvider,gasProvider),
@@ -430,7 +430,7 @@ class SmartHubAPI:
 
                     locations.append(
                       SmartHubLocation(
-                        id=f"WATER_{locationID}", # keep district from electrical
+                        id=locationID, # used by the API to fetch the usage data
                         service=WATER_SERVICE,
                         description=description,
                         provider=providerOrServiceDescription.get(waterProvider,waterProvider),

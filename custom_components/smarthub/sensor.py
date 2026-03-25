@@ -189,11 +189,10 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
     # utility dashboards.
     async def _insert_statistics(self, location, aggregation: Aggregation):
         """Retrieve energy usage data asynchronously with retry logic. Always backfills the data overwriting the history based on the collection window."""
-        consumption_statistic_id = f"{DOMAIN}:smarthub_energy_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower() # must be a lower case string.
-        return_statistic_id = f"{DOMAIN}:smarthub_energy_return_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower()
 
         match location.service:
           case service if service == GAS_SERVICE or service == WATER_SERVICE:
+            serviceType = service
             consumption_unit_class = (
                 VolumeConverter.UNIT_CLASS
             )
@@ -201,12 +200,16 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 UnitOfVolume.CENTUM_CUBIC_FEET
             )
           case service if service == ELECTRIC_SERVICE:
+            serviceType = "energy" # compatibility with previous statistics ids.
             consumption_unit_class = (
                 EnergyConverter.UNIT_CLASS
             )
             consumption_unit = (
                 UnitOfEnergy.KILO_WATT_HOUR
             )
+
+        consumption_statistic_id = f"{DOMAIN}:smarthub_{serviceType}_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower() # must be a lower case string.
+        return_statistic_id = f"{DOMAIN}:smarthub_{serviceType}_return_sensor{aggregation.suffix}_{self.account_id}_{location.id}".lower()
 
         consumption_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,

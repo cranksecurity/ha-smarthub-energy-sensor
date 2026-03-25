@@ -202,13 +202,13 @@ def test_parse_locations(api_instance):
         provider="3ELEC",
       ),
       SmartHubLocation(
-        id="GAS_5XX12XX0YY", # will be lowercase in the statistic
+        id="5XX12XX0YY", # will be lowercase in the statistic
         service=GAS_SERVICE,
         description="",
         provider="2NGAS",
       ),
       SmartHubLocation(
-        id="WATER_5XX12XX0YY", # will be lowercase in the statistic
+        id="5XX12XX0YY", # will be lowercase in the statistic
         service=WATER_SERVICE,
         description="",
         provider="1WATR",
