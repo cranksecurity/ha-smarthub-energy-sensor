@@ -281,7 +281,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
             # always backdate the start_datetime to ensure no gaps in recorded data
             match aggregation:
               case Aggregation.MONTHLY:
-                start_datetime = start_datetime - timedelta(months=6)
+                start_datetime = start_datetime - timedelta(days=180) # Pull roughly 6 months of data.
               case Aggregation.HOURLY | Aggregation.DAILY:
                 start_datetime = start_datetime - timedelta(days=2)
 
