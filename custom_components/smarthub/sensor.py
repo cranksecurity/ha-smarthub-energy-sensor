@@ -197,7 +197,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 VolumeConverter.UNIT_CLASS
             )
             consumption_unit = (
-                UnitOfVolume.GALLONS # TODO: If other smarthub customers use a different measurement - use the `unitOfMeasure` attribute in the Meter Description to set this correctly.
+                UnitOfVolume.CENTUM_CUBIC_FEET
             )
           case service if service == WATER_SERVICE:
             serviceType = service
@@ -205,7 +205,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 VolumeConverter.UNIT_CLASS
             )
             consumption_unit = (
-                UnitOfVolume.CENTUM_CUBIC_FEET
+                UnitOfVolume.GALLONS # TODO: If other smarthub customers use a different measurement - use the `unitOfMeasure` attribute in the Meter Description to set this correctly.
             )
           case service if service == ELECTRIC_SERVICE:
             serviceType = "energy" # compatibility with previous statistics ids.
