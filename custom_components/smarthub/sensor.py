@@ -191,7 +191,15 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         """Retrieve energy usage data asynchronously with retry logic. Always backfills the data overwriting the history based on the collection window."""
 
         match location.service:
-          case service if service == GAS_SERVICE or service == WATER_SERVICE:
+          case service if service == GAS_SERVICE:
+            serviceType = service
+            consumption_unit_class = (
+                VolumeConverter.UNIT_CLASS
+            )
+            consumption_unit = (
+                UnitOfVolume.GALLONS # TODO: If other smarthub customers use a different measurement - use the `unitOfMeasure` attribute in the Meter Description to set this correctly.
+            )
+          case service if service == WATER_SERVICE:
             serviceType = service
             consumption_unit_class = (
                 VolumeConverter.UNIT_CLASS
