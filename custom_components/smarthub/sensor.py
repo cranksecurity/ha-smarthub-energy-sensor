@@ -167,7 +167,8 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                 await self._insert_statistics(location, Aggregation.HOURLY)
                 await self._insert_statistics(location, Aggregation.DAILY)
               if location.service == WATER_SERVICE:
-                # Water is often only reported monthly
+                # Water is likely not available with hourly precision.
+                await self._insert_statistics(location, Aggregation.DAILY)
                 await self._insert_statistics(location, Aggregation.MONTHLY)
 
             return entity_response
