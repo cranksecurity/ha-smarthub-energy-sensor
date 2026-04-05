@@ -114,6 +114,41 @@ def test_parse_usage_offset_hourly(api_instance):
     assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 1.1
     assert result[ELECTRIC_SERVICE]["USAGE"][1]["raw_timestamp"] == 1762218000000 # not 1762218900000, because thats :15 min after the hour
 
+def test_parse_usage_offset_hourly_total(api_instance):
+    """Test parsing valid usage data."""
+    test_data = {
+        "data": {
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "meters": [
+                             {'meterNumber': 'ISSUE62', 'seriesId': 'ISSUE62', 'flowDirection': 'TOTAL', 'isNetMeter': False},
+                            ],
+                            "data": [
+                                {"x": 1762215300000, "y":   1.1},
+                                {"x": 1762216200000, "y":  10.2},
+                                {"x": 1762217100000, "y": 100.3},
+                                {"x": 1762218900000, "y": 1.1},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    result = api_instance.parse_usage(test_data)
+
+    assert result is not None
+    assert "USAGE" in result[ELECTRIC_SERVICE]
+    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
+    assert result[ELECTRIC_SERVICE]["USAGE"][0]["consumption"] == 111.6
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 1.1
+    assert result[ELECTRIC_SERVICE]["USAGE"][1]["raw_timestamp"] == 1762218000000 # not 1762218900000, because thats :15 min after the hour
+
+
 def test_parse_usage_offset_start(api_instance):
     """Test parsing valid usage data."""
     test_data = {
