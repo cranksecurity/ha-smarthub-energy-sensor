@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
-from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
+from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation, Aggregation
 from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE, GAS_SERVICE
 
 
@@ -73,7 +73,7 @@ def test_parse_usage_valid_data(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -105,7 +105,7 @@ def test_parse_usage_offset_hourly(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -139,7 +139,7 @@ def test_parse_usage_offset_hourly_total(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -174,7 +174,7 @@ def test_parse_usage_offset_start(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -208,7 +208,7 @@ def test_parse_usage_fifteen_min(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -220,7 +220,7 @@ def test_parse_usage_no_data(api_instance):
     """Test parsing when no usage data is available."""
     test_data = {"data": {"ELECTRIC": []}}
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     # parse_usage returns {} for each service if no usage found (or rather, the dict might be empty of USAGE key)
     # Looking at code: parsed_response = {}, if len(electric_data) == 0 log warning.
@@ -246,7 +246,7 @@ def test_parse_usage_no_usage(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -258,7 +258,7 @@ def test_parse_usage_invalid_data(api_instance):
     # The api.py raises SmartHubDataError if not dict.
     from custom_components.smarthub.api import SmartHubDataError
     with pytest.raises(SmartHubDataError):
-        api_instance.parse_usage("invalid_data")
+        api_instance.parse_usage("invalid_data", Aggregation.HOURLY)
 
 
 @pytest.mark.asyncio

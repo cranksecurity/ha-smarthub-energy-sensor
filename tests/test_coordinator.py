@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
-from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
+from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation, Aggregation
 from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE
 
 from custom_components.smarthub.sensor import SmartHubDataUpdateCoordinator
@@ -112,7 +112,7 @@ async def test_coordinator_first_run_forward_meter(
         }
     }
 
-    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data, Aggregation.HOURLY)
 
     coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
 
@@ -190,7 +190,7 @@ async def test_coordinator_first_run_net_meter(
         }
     }
 
-    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data, Aggregation.HOURLY)
     assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][0]['consumption'] == 5
     assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][1]['consumption'] == 1
 
@@ -275,7 +275,7 @@ async def test_coordinator_first_run_return_meter(
         }
     }
 
-    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data, Aggregation.HOURLY)
     assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][0]['consumption'] == 5
     assert mock_smarthub_api.get_energy_data.return_value[ELECTRIC_SERVICE]["USAGE_RETURN"][1]['consumption'] == 1
 

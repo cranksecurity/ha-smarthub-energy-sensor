@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
-from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation
+from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation, Aggregation
 from custom_components.smarthub.const import DOMAIN, ENERGY_SENSOR_KEY, ELECTRIC_SERVICE, GAS_SERVICE
 from custom_components.smarthub.sensor import SmartHubDataUpdateCoordinator
 from homeassistant.components.recorder import Recorder, get_instance
@@ -132,7 +132,7 @@ def test_parse_usage_valid_data(api_instance):
         }
     }
 
-    result = api_instance.parse_usage(test_data)
+    result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     assert result is not None
     assert "USAGE" in result[ELECTRIC_SERVICE]
@@ -209,7 +209,7 @@ async def test_coordinator_first_run_gas_electric(
         }
     }
 
-    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data, Aggregation.HOURLY)
 
     coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
 

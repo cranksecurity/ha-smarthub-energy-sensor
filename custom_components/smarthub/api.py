@@ -177,7 +177,7 @@ class SmartHubAPI:
 
         return parsed_data
 
-    def parse_usage(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def parse_usage(self, data: Dict[str, Any], aggregation:Aggregation) -> Optional[Dict[str, Any]]:
         """
         Parse the JSON data and extract the last data point for usage.
 
@@ -202,20 +202,20 @@ class SmartHubAPI:
             # Locate the "ELECTRIC" data
             electric_data = data.get("data", {}).get(ELECTRIC_SERVICE, [])
             if len(electric_data) == 0:
-              _LOGGER.warning("No ELECTRIC data found in response")
+              _LOGGER.warning(f"No ELECTRIC data found in response for {aggregation.value}")
               _LOGGER.debug(data)
 
             for entry in electric_data:
                 # Find the entry with type "USAGE"
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("ELECTRICAL Usage: %s", entry)
+                    _LOGGER.debug(f"ELECTRICAL Usage for {aggregation.value}: %s", entry)
 
                     meters = entry.get("meters", [])
                     forward_series = ""
                     net_series = ""
                     return_series = ""
                     if len(meters) > 2:
-                      _LOGGER.warning("More then 2 meters in usage data: %s", meters)
+                      _LOGGER.warning(f"More then 2 meters in usage data for {aggregation.value}: %s", meters)
                     for meter in meters:
                       # assume forward is default if not present
                       flow_direction = meter.get("flowDirection", ParseType.FORWARD)
@@ -227,14 +227,17 @@ class SmartHubAPI:
                         case ParseType.RETURN:
                           return_series = meter["seriesId"]
                         case _:
-                          _LOGGER.warning("Unknown flow direction in meter: %s", meter)
+                          _LOGGER.warning(f"Unknown flow direction in meter for {aggregation.value}: %s", meter)
 
                     series = entry.get("series", [])
+                    if len(series) == 0:
+                        _LOGGER.warning(f"No ENERGY series for {aggregation.value}: %s", series)
+
                     for serie in series:
                         if serie.get("name", "") == return_series:
                             usage_data = serie.get("data", [])
                             parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.RETURN)
-                            _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
+                            _LOGGER.debug(f"Parsed %d items for USAGE_RETURN history for {aggregation.value}", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
 
                         # If there is a NetMeter, use that for both Return and Usage (as it combines both).
                         # NOTE - there must always be a FORWARD or NET meter - or the "USAGE" is not being returned.
@@ -244,26 +247,28 @@ class SmartHubAPI:
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response[ELECTRIC_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for USAGE history", len(parsed_response[ELECTRIC_SERVICE]["USAGE"]))
+                            _LOGGER.debug(f"Parsed %d items for USAGE history for {aggregation.value}", len(parsed_response[ELECTRIC_SERVICE]["USAGE"]))
 
                             if net_series != "":
                               parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
-                              _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
+                              _LOGGER.debug(f"Parsed %d items for USAGE_RETURN history for {aggregation.value}", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
                 else:
-                    _LOGGER.debug("Unknown Electrical Usage: %s", entry)
+                    _LOGGER.debug(f"Unknown Electrical Usage for {aggregation.value}: %s", entry)
 
             gasData = data.get("data", {}).get("GAS", [])
             if len(gasData) == 0:
-              _LOGGER.warning("No GAS data found in response")
+              _LOGGER.warning(f"No GAS data found in response for {aggregation.value}")
               _LOGGER.debug(data)
 
             for entry in gasData:
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("GAS Usage: %s", entry)
+                    _LOGGER.debug(f"GAS Usage for {aggregation.value}: %s", entry)
 
                     series = entry.get("series", [])
                     if len(series) > 1:
-                        _LOGGER.warning("Multiple GAS series: %s", series)
+                        _LOGGER.warning(f"Multiple GAS series for {aggregation.value}: %s", series)
+                    if len(series) == 0:
+                        _LOGGER.warning(f"No GAS series for {aggregation.value}: %s", series)
 
                     for serie in series:
                             parsed_response[GAS_SERVICE][METER_NAME] = serie.get("name")
@@ -271,23 +276,25 @@ class SmartHubAPI:
                             # Extract the last data point in the "data" array
                             usage_data = serie.get("data", [])
                             parsed_response[GAS_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for GAS USAGE history", len(parsed_response[GAS_SERVICE]["USAGE"]))
+                            _LOGGER.debug(f"Parsed %d items for GAS USAGE history for {aggregation.value}", len(parsed_response[GAS_SERVICE]["USAGE"]))
 
                 else:
-                    _LOGGER.debug("Unknown Gas Usage: %s", entry)
+                    _LOGGER.debug(f"Unknown Gas Usage for {aggregation.value}: %s", entry)
 
             waterData = data.get("data", {}).get("WATER", [])
             if len(waterData) == 0:
-              _LOGGER.warning("No WATER data found in response")
+              _LOGGER.warning(f"No WATER data found in response for {aggregation.value}")
               _LOGGER.debug(data)
 
             for entry in waterData:
                 if entry.get("type","") == "USAGE":
-                    _LOGGER.debug("WATER Usage: %s", entry)
+                    _LOGGER.debug(f"WATER Usage for {aggregation.value}: %s", entry)
 
                     series = entry.get("series", [])
                     if len(series) > 1:
-                        _LOGGER.warning("Multiple WATER series: %s", series)
+                        _LOGGER.warning(f"Multiple WATER series for {aggregation.value}: %s", series)
+                    if len(series) == 0:
+                        _LOGGER.warning(f"No WATER series for {aggregation.value}: %s", series)
 
                     for serie in series:
                         parsed_response[WATER_SERVICE][METER_NAME] = serie.get("name", "unknown meter name")
@@ -697,7 +704,7 @@ class SmartHubAPI:
                             return None
                     elif status == "COMPLETE":
                         _LOGGER.debug("Successfully retrieved energy data")
-                        return self.parse_usage(response_json)
+                        return self.parse_usage(response_json, aggregation)
                     else:
                         _LOGGER.warning("Unexpected status in response: %s", status)
                         _LOGGER.debug(response_json)
