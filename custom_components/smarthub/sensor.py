@@ -223,7 +223,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         consumption_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
-            name=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {location.description}",
+            name=f"{location.provider} SmartHub {location.service} {aggregation.label} Usage - {self.account_id} - {location.description}",
             source=DOMAIN,
             statistic_id=consumption_statistic_id,
             unit_class=consumption_unit_class, # required in 2025.11
@@ -233,7 +233,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
         return_metadata = StatisticMetaData(
             mean_type=StatisticMeanType.NONE,
             has_sum=True,
-            name=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {location.description}",
+            name=f"{location.provider} SmartHub {location.service} {aggregation.label} Return - {self.account_id} - {location.description}",
             source=DOMAIN,
             statistic_id=return_statistic_id,
             unit_class=consumption_unit_class, # required in 2025.11
@@ -381,8 +381,10 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
         # If the location description is blank, use the meter name instead.
         if location.description == "":
-          consumption_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Usage - {self.account_id} - {smarthub_data[location.service].get(METER_NAME, None)}"
-          return_metadata["name"]=f"{location.provider} SmartHub Energy {aggregation.label} Return - {self.account_id} - {smarthub_data[location.service].get(METER_NAME, None)}"
+          _LOGGER.warning(f"MISSING Location Description for Location id:{location.id} service:{location.service} using Meter Name - {smarthub_data[location.service].get(METER_NAME)}")
+
+          consumption_metadata["name"]=f"{location.provider} SmartHub {location.service} {aggregation.label} Usage - {self.account_id} - {smarthub_data[location.service].get(METER_NAME)}"
+          return_metadata["name"]=f"{location.provider} SmartHub {location.service} {aggregation.label} Return - {self.account_id} - {smarthub_data[location.service].get(METER_NAME)}"
 
         _LOGGER.info(
             "Adding %s statistics for %s",

@@ -1,5 +1,6 @@
 """Test file for basic SmartHub integration functionality."""
 import pytest
+import functools
 from unittest.mock import Mock, patch, AsyncMock
 from collections.abc import Generator
 from homeassistant.core import HomeAssistant
@@ -16,6 +17,7 @@ from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     get_last_statistics,
     statistics_during_period,
+    get_metadata,
 )
 
 from datetime import timedelta
@@ -247,9 +249,94 @@ async def test_coordinator_first_run_water_electric(
         {"state", "sum"},
     )
 
+    water_metadata = await get_instance(hass).async_add_executor_job(
+      functools.partial(
+        get_metadata,
+        hass,
+        statistic_ids={
+            "smarthub:smarthub_water_sensor_monthly_123456_11112",
+        },
+      )
+    )
+
     # The first hour's statistics summary is...
     assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 100.5
     assert water_stats["smarthub:smarthub_water_sensor_monthly_123456_11112"][0]["sum"] == 3.2 # must be lowercase
+
+    assert water_metadata["smarthub:smarthub_water_sensor_monthly_123456_11112"][1]["name"] == 'test provider SmartHub WATER Monthly Usage - 123456 - test location'
+
+async def test_coordinator_water_metadata(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_smarthub_api: AsyncMock,
+) -> None:
+    """Test the metadata on its first run with no existing statistics."""
+    mock_smarthub_api.get_service_locations.return_value = [
+      SmartHubLocation(
+        id="11112", # ID could be the same or unique from electric.
+        service=WATER_SERVICE,
+        description="withDesc",
+        provider="test provider",
+      ),
+      SmartHubLocation(
+        id="11113", # ID could be the same or unique from electric.
+        service=WATER_SERVICE,
+        description="",
+        provider="test provider",
+      )
+    ]
+
+    test_data = {
+        "data": {
+            "WATER": [
+                {
+                    "type": "USAGE",
+                    "series": [
+                        {
+                            "name": "YYYYYY",
+                            "meterNumber": "YYYYYY",
+                            "data": [
+                              {
+                                "x": 1739836800000,
+                                "y": 3.2,
+                                "enableDrilldown": True
+                              },
+                              {
+                                "x": 1739923200000,
+                                "y": 2.64,
+                                "enableDrilldown": True
+                              }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data)
+
+    coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
+
+    entities = await coordinator._async_update_data()
+    await async_wait_recording_done(hass)
+
+    water_metadata = await get_instance(hass).async_add_executor_job(
+      functools.partial(
+        get_metadata,
+        hass,
+        statistic_ids={
+            "smarthub:smarthub_water_sensor_monthly_123456_11112",
+            "smarthub:smarthub_water_sensor_monthly_123456_11113",
+        },
+      )
+    )
+
+    assert water_metadata["smarthub:smarthub_water_sensor_monthly_123456_11112"][1]["name"] == 'test provider SmartHub WATER Monthly Usage - 123456 - withDesc'
+    assert water_metadata["smarthub:smarthub_water_sensor_monthly_123456_11113"][1]["name"] == 'test provider SmartHub WATER Monthly Usage - 123456 - YYYYYY'
+
+
 
 async def async_wait_recording_done(hass) -> None:
     """Async wait until recording is done."""

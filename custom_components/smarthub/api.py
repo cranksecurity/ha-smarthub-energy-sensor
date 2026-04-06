@@ -250,7 +250,7 @@ class SmartHubAPI:
                               parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"] = self.parse_usage_series(usage_data, ParseType.NET)
                               _LOGGER.debug("Parsed %d items for USAGE_RETURN history", len(parsed_response[ELECTRIC_SERVICE]["USAGE_RETURN"]))
                 else:
-                    _LOGGER.debug("Unknown Usage: %s", entry)
+                    _LOGGER.debug("Unknown Electrical Usage: %s", entry)
 
             gasData = data.get("data", {}).get("GAS", [])
             if len(gasData) == 0:
@@ -274,7 +274,7 @@ class SmartHubAPI:
                             _LOGGER.debug("Parsed %d items for GAS USAGE history", len(parsed_response[GAS_SERVICE]["USAGE"]))
 
                 else:
-                    _LOGGER.debug("Unknown Usage: %s", entry)
+                    _LOGGER.debug("Unknown Gas Usage: %s", entry)
 
             waterData = data.get("data", {}).get("WATER", [])
             if len(waterData) == 0:
@@ -290,15 +290,15 @@ class SmartHubAPI:
                         _LOGGER.warning("Multiple WATER series: %s", series)
 
                     for serie in series:
-                            parsed_response[WATER_SERVICE][METER_NAME] = serie.get("name")
+                        parsed_response[WATER_SERVICE][METER_NAME] = serie.get("name", "unknown meter name")
 
-                            # Extract the last data point in the "data" array
-                            usage_data = serie.get("data", [])
-                            parsed_response[WATER_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
-                            _LOGGER.debug("Parsed %d items for WATER USAGE history", len(parsed_response[WATER_SERVICE]["USAGE"]))
+                        # Extract the last data point in the "data" array
+                        usage_data = serie.get("data", [])
+                        parsed_response[WATER_SERVICE]["USAGE"] = self.parse_usage_series(usage_data)
+                        _LOGGER.debug("Parsed %d items for WATER USAGE history", len(parsed_response[WATER_SERVICE]["USAGE"]))
 
                 else:
-                    _LOGGER.debug("Unknown Usage: %s", entry)
+                    _LOGGER.debug("Unknown Water Usage: %s", entry)
 
 
             return parsed_response
@@ -438,6 +438,9 @@ class SmartHubAPI:
                       )
                     )
 
+
+        for l in locations:
+            _LOGGER.warning(f"Location id:{l.id} service:{l.service} description:{l.description} provider:{l.provider}")
 
         return locations
 
