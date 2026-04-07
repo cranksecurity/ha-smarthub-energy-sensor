@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio # for concurrent data fetching handling
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, Optional
@@ -135,9 +136,11 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
               if location.service == ELECTRIC_SERVICE:
                   # Because SmartHub provides historical usage/cost with delay of a
                   # number of hours we need to insert data into statistics.
-                  await self._insert_statistics(location, Aggregation.HOURLY)
-                  await self._insert_statistics(location, Aggregation.DAILY)
-                  await self._insert_statistics(location, Aggregation.MONTHLY)
+                  await asyncio.gather(
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.HOURLY)),
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.DAILY)),
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.MONTHLY)),
+                  )
 
                   # Fetch monthly information for entity value
                   first_day_of_current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -145,7 +148,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                   data = await self.api.get_energy_data(location=location, start_datetime=first_day_of_current_month, aggregation=Aggregation.MONTHLY)
 
                   if len(data[location.service].get("USAGE", [])) == 0:
-                      _LOGGER.warning("No data received from SmartHub API for location %s", location)
+                      _LOGGER.warning("No Monthly Energy data received from SmartHub API for location %s", location)
                       # Return previous data if available, otherwise empty dict
                       entity_response[location.id] = {
                         ENERGY_SENSOR_KEY: 0, # no data - no energy usage for the entity.
@@ -166,14 +169,18 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                   }
 
               if location.service == GAS_SERVICE:
-                await self._insert_statistics(location, Aggregation.HOURLY)
-                await self._insert_statistics(location, Aggregation.DAILY)
-                await self._insert_statistics(location, Aggregation.MONTHLY)
+                await asyncio.gather(
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.HOURLY)),
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.DAILY)),
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.MONTHLY)),
+                )
 
               if location.service == WATER_SERVICE:
                 # Water is likely not available with hourly precision.
-                await self._insert_statistics(location, Aggregation.DAILY)
-                await self._insert_statistics(location, Aggregation.MONTHLY)
+                await asyncio.gather(
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.DAILY)),
+                    asyncio.create_task(self._insert_statistics(location, Aggregation.MONTHLY)),
+                )
 
             return entity_response
 
@@ -192,6 +199,8 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
     # https://github.com/tronikos/opower/ was used as a model for how to populate
     # hourly metrics when access to realtime information is not possible via
     # utility dashboards.
+    # TODO: instead of handling the hourly/daily choices in the calling function - this could be recursive
+    # so that we call monthly - then if monthly shows it has hourly/daily - we then fetch that data.
     async def _insert_statistics(self, location, aggregation: Aggregation):
         """Retrieve energy usage data asynchronously with retry logic. Always backfills the data overwriting the history based on the collection window."""
 

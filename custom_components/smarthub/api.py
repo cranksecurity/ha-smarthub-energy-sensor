@@ -643,7 +643,7 @@ class SmartHubAPI:
             "includeDemand": False,
             "serviceLocationNumber": location.id,
             "accountNumber": self.account_id,
-            "industries": Location.service,
+            "industries": [location.service],
             "startDateTime": str(start_timestamp),
             "endDateTime": str(end_timestamp),
         }
