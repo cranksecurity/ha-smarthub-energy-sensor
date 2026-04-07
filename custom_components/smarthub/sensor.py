@@ -137,6 +137,7 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                   # number of hours we need to insert data into statistics.
                   await self._insert_statistics(location, Aggregation.HOURLY)
                   await self._insert_statistics(location, Aggregation.DAILY)
+                  await self._insert_statistics(location, Aggregation.MONTHLY)
 
                   # Fetch monthly information for entity value
                   first_day_of_current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -163,9 +164,12 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                     LOCATION_KEY: location,
                     METER_NAME: data[location.service].get(METER_NAME, None)
                   }
+
               if location.service == GAS_SERVICE:
                 await self._insert_statistics(location, Aggregation.HOURLY)
                 await self._insert_statistics(location, Aggregation.DAILY)
+                await self._insert_statistics(location, Aggregation.MONTHLY)
+
               if location.service == WATER_SERVICE:
                 # Water is likely not available with hourly precision.
                 await self._insert_statistics(location, Aggregation.DAILY)
@@ -378,6 +382,14 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
                     start=start, state=return_state, sum=return_sum
                 )
             )
+
+        # If the returned statistics don't include Hourly or Daily - the don't add the stats.
+        if aggregation == Aggregation.DAILY and not smarthub_data[location.service].get("hasDaily"):
+          _LOGGER.warning(f"Returned data doesnot include {aggregation} information - don't add an {aggregation} statistic.")
+          return
+        if aggregation == Aggregation.HOURLY and not smarthub_data[location.service].get("hasHourly"):
+          _LOGGER.warning(f"Returned data doesnot include {aggregation} information - don't add an {aggregation} statistic.")
+          return
 
         # If the location description is blank, use the meter name instead.
         if location.description == "":

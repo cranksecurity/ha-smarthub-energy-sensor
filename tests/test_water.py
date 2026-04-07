@@ -92,22 +92,7 @@ def test_parse_usage_valid_data(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
-            "ELECTRIC": [
-                {
-                    "type": "USAGE",
-                    "series": [
-                        {
-                            "meters": [
-                             {'meterNumber': '1ND81111111', 'seriesId': '1ND81111111', 'flowDirection': 'NET', 'isNetMeter': True}, # Non net meters have Forward flow as default
-                            ],
-                            "data": [
-                                {"x": 1640995200000, "y": 100.5},
-                                {"x": 1641081600000, "y": 150.2},
-                            ]
-                        }
-                    ]
-                }
-            ],
+            "hasDaily": False,
             "WATER": [
                 {
                     "type": "USAGE",
@@ -135,11 +120,6 @@ def test_parse_usage_valid_data(api_instance):
     }
 
     result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
-
-    assert result is not None
-    assert "USAGE" in result[ELECTRIC_SERVICE]
-    assert len(result[ELECTRIC_SERVICE]["USAGE"]) == 2
-    assert result[ELECTRIC_SERVICE]["USAGE"][1]["consumption"] == 150.2
 
     assert "USAGE" in result[WATER_SERVICE]
     assert len(result[WATER_SERVICE]["USAGE"]) == 2
@@ -169,6 +149,7 @@ async def test_coordinator_first_run_water_electric(
 
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",

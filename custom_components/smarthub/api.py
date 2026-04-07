@@ -192,12 +192,15 @@ class SmartHubAPI:
         """
         try:
             parsed_response = {}
-            # Initialize all supported services to empty set
-            for service in SUPPORTED_SERVICES:
-              parsed_response[service]={}
 
             if not isinstance(data, dict):
                 raise SmartHubDataError("Invalid data format: expected dictionary")
+
+            # Initialize all supported services to empty set
+            for service in SUPPORTED_SERVICES:
+              parsed_response[service]={}
+              parsed_response[service]["hasHourly"] = data.get("data", {}).get("hasHourly", False)
+              parsed_response[service]["hasDaily"] = data.get("data", {}).get("hasDaily", False)
 
             # Locate the "ELECTRIC" data
             electric_data = data.get("data", {}).get(ELECTRIC_SERVICE, [])
@@ -640,7 +643,7 @@ class SmartHubAPI:
             "includeDemand": False,
             "serviceLocationNumber": location.id,
             "accountNumber": self.account_id,
-            "industries": SUPPORTED_SERVICES, # TODO: can be filtered by the industries supported in a location object - or request - or calling functions can call once for multiple services.
+            "industries": Location.service,
             "startDateTime": str(start_timestamp),
             "endDateTime": str(end_timestamp),
         }

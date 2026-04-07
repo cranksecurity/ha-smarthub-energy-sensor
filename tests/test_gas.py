@@ -90,6 +90,7 @@ def test_parse_usage_valid_data(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -167,6 +168,7 @@ async def test_coordinator_first_run_gas_electric(
 
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",

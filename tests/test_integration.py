@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.smarthub import async_setup_entry
 from custom_components.smarthub.api import SmartHubAPI, SmartHubAPIError, SmartHubLocation, Aggregation
-from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE, GAS_SERVICE
+from custom_components.smarthub.const import DOMAIN, ELECTRIC_SERVICE, GAS_SERVICE, WATER_SERVICE
 
 
 @pytest.fixture
@@ -54,6 +54,7 @@ def test_parse_usage_valid_data(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -84,6 +85,7 @@ def test_parse_usage_offset_hourly(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -118,6 +120,7 @@ def test_parse_usage_offset_hourly_total(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -153,6 +156,7 @@ def test_parse_usage_offset_start(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -187,6 +191,7 @@ def test_parse_usage_fifteen_min(api_instance):
     """Test parsing valid usage data."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -218,20 +223,22 @@ def test_parse_usage_fifteen_min(api_instance):
 
 def test_parse_usage_no_data(api_instance):
     """Test parsing when no usage data is available."""
-    test_data = {"data": {"ELECTRIC": []}}
+    test_data = {"hasDaily": True, "hasHourly": True, "data": {"ELECTRIC": []}}
 
     result = api_instance.parse_usage(test_data, Aggregation.HOURLY)
 
     # parse_usage returns {} for each service if no usage found (or rather, the dict might be empty of USAGE key)
     # Looking at code: parsed_response = {}, if len(electric_data) == 0 log warning.
     # Returns parsed_response. So it returns {}.
-    assert result[ELECTRIC_SERVICE] == {}
-    assert result[GAS_SERVICE] == {}
+    assert "USAGE" not in result[ELECTRIC_SERVICE]
+    assert "USAGE" not in result[GAS_SERVICE]
+    assert "USAGE" not in result[WATER_SERVICE]
 
 def test_parse_usage_no_usage(api_instance):
     """Test parsing when no usage data is available."""
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",

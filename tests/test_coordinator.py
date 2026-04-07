@@ -90,6 +90,8 @@ async def test_coordinator_first_run_forward_meter(
 
     test_data = {
         "data": {
+            "hasDaily": True,
+            "hasHourly": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -128,6 +130,7 @@ async def test_coordinator_first_run_forward_meter(
         None,
         {
             "smarthub:smarthub_energy_sensor_daily_123456_11111",
+            "smarthub:smarthub_energy_sensor_123456_11111",
         },
         "hour",
         None,
@@ -136,7 +139,77 @@ async def test_coordinator_first_run_forward_meter(
 
     # The first hour's statistics summary is...
     assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 111.0
+    assert stats["smarthub:smarthub_energy_sensor_123456_11111"][0]["sum"] == 111.0
 
+
+async def test_coordinator_first_run_total_meter(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_smarthub_api: AsyncMock,
+) -> None:
+    """Test the coordinator on its first run with no existing statistics."""
+    mock_smarthub_api.get_service_locations.return_value = [
+      SmartHubLocation(
+        id="11111",
+        service=ELECTRIC_SERVICE,
+        description="test location",
+        provider="test provider",
+      )
+    ]
+
+    test_data = {
+        "data": {
+            "hasDaily": True,
+            "hasHourly": False,
+            "ELECTRIC": [
+                {
+                    "type": "USAGE",
+                    "meters": [
+                     {'meterNumber': '1ND91111111', 'seriesId': '1ND91111111', 'flowDirection': 'TOTAL', 'isNetMeter': False},
+                    ],
+                    "series": [
+                        {
+                            "meterNumber": "1ND91111111", "name": "1ND91111111",
+                            "data": [
+                                {"x": 1762215300000, "y":   1},
+                                {"x": 1762216200000, "y":  10},
+                                {"x": 1762217100000, "y": 100},
+                                {"x": 1762218900000, "y": 1},
+                            ]
+                        },
+                    ]
+                }
+            ]
+        }
+    }
+
+    mock_smarthub_api.get_energy_data.return_value = mock_smarthub_api.parse_usage(test_data, Aggregation.HOURLY)
+
+    coordinator = SmartHubDataUpdateCoordinator(hass, api=mock_smarthub_api, update_interval=timedelta(minutes=720), config_entry=mock_config_entry)
+
+    await coordinator._async_update_data()
+
+    await async_wait_recording_done(hass)
+
+    # Check stats for electric account '111111'
+    stats = await get_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        dt_util.utc_from_timestamp(0),
+        None,
+        {
+            "smarthub:smarthub_energy_sensor_daily_123456_11111",
+            "smarthub:smarthub_energy_sensor_123456_11111",
+        },
+        "hour",
+        None,
+        {"state", "sum"},
+    )
+
+    # The first hour's statistics summary is...
+    assert stats["smarthub:smarthub_energy_sensor_daily_123456_11111"][0]["sum"] == 111.0
+    assert "smarthub_energy_sensor_123456_11111" not in stats
 
 async def test_coordinator_first_run_net_meter(
     recorder_mock: Recorder,
@@ -156,6 +229,7 @@ async def test_coordinator_first_run_net_meter(
 
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
@@ -241,6 +315,7 @@ async def test_coordinator_first_run_return_meter(
 
     test_data = {
         "data": {
+            "hasDaily": True,
             "ELECTRIC": [
                 {
                     "type": "USAGE",
