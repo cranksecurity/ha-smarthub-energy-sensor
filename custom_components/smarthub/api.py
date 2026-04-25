@@ -213,6 +213,9 @@ class SmartHubAPI:
                 if entry.get("type","") == "USAGE":
                     _LOGGER.debug(f"ELECTRICAL Usage for {aggregation.value}: %s", entry)
 
+                    parsed_response[ELECTRIC_SERVICE]["hasHourly"] |= entry.get("hasHourly", False)
+                    parsed_response[ELECTRIC_SERVICE]["hasDaily"] |= entry.get("hasDaily", False)
+
                     meters = entry.get("meters", [])
                     forward_series = ""
                     net_series = ""
@@ -267,6 +270,9 @@ class SmartHubAPI:
                 if entry.get("type","") == "USAGE":
                     _LOGGER.debug(f"GAS Usage for {aggregation.value}: %s", entry)
 
+                    parsed_response[GAS_SERVICE]["hasHourly"] |= entry.get("hasHourly", False)
+                    parsed_response[GAS_SERVICE]["hasDaily"] |= entry.get("hasDaily", False)
+
                     series = entry.get("series", [])
                     if len(series) > 1:
                         _LOGGER.warning(f"Multiple GAS series for {aggregation.value}: %s", series)
@@ -292,6 +298,9 @@ class SmartHubAPI:
             for entry in waterData:
                 if entry.get("type","") == "USAGE":
                     _LOGGER.debug(f"WATER Usage for {aggregation.value}: %s", entry)
+
+                    parsed_response[WATER_SERVICE]["hasHourly"] |= entry.get("hasHourly", False)
+                    parsed_response[WATER_SERVICE]["hasDaily"] |= entry.get("hasDaily", False)
 
                     series = entry.get("series", [])
                     if len(series) > 1:

@@ -394,10 +394,10 @@ class SmartHubDataUpdateCoordinator(DataUpdateCoordinator):
 
         # If the returned statistics don't include Hourly or Daily - the don't add the stats.
         if aggregation == Aggregation.DAILY and not smarthub_data[location.service].get("hasDaily"):
-          _LOGGER.warning(f"Returned data doesnot include {aggregation} information - don't add an {aggregation} statistic.")
+          _LOGGER.warning(f"Returned data doesnot include {aggregation} {location.service} information - don't add an {aggregation} statistic.")
           return
         if aggregation == Aggregation.HOURLY and not smarthub_data[location.service].get("hasHourly"):
-          _LOGGER.warning(f"Returned data doesnot include {aggregation} information - don't add an {aggregation} statistic.")
+          _LOGGER.warning(f"Returned data doesnot include {aggregation} {location.service} information - don't add an {aggregation} statistic.")
           return
 
         # If the location description is blank, use the meter name instead.
